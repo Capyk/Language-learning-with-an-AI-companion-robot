@@ -1,0 +1,26 @@
+{
+"visualizers": [
+{
+"type" : "raw_text",
+"displayName" : "full text"
+},
+{
+"type" : "kwic",
+"displayName" : "KWIC"
+},
+{
+"type" : "grid",
+"displayName" : "annotation"
+}
+],
+"metaDataColumns" : [
+{
+"name" : "_rating_fair_cefr"
+}
+],
+"orderBy" : [
+{
+"name" :"_author_id",
+"ascending" : "true"}
+]
+} 

@@ -1,0 +1,15 @@
+"bezahle"	a word in the learner text
+TH1="bezahle"	a word in the target hypothesis 1
+TH1Diff="CHA"	a CHA (change) in the target hypothesis 1 diff
+"bezahle" .learner "ich"	two adjacent words in the learner text
+"bezahle" .learner,2,5 "ich"	two words 2-5 tokens apart in the learner text
+TH1="bezahle" . TH1="ich"	two adjacent words in the target hypothesis 1
+greeting	a greeting
+greeting _i_ "geehrte"	a greeting containing the word "geehrte"
+EA_category="O_Graph"	an orthographic error
+O_Graph_graphgen_act_type="o"	an orthographic error: omission
+tok_lemma="bezahlen"	lemma form for the learner text
+tok_pos="VVFIN"	part-of-speech for the learner text
+sentence ->dep "bezahle"	the root word in a dependency tree
+"bezahle" ->dep[func="Sb"] "ich"	the Sb relation between two words
+tok ->dep[func="Sb"] tok	any pair of tokens with an Sb dependency relation

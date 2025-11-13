@@ -1,0 +1,46 @@
+Task ID	task-topic-short
+1385_020100	appointment
+1385_040101	job search-advice
+1395_040101	see a friend
+1395_020300	contact a friend
+1395_010300	language course-advice
+1365_050401	language course-enquiry
+1365_050402	cook with teacher
+1365_020300	wedding invitation
+1365_040501	job search-advice
+1325_040300-2	chat-advice
+1325_040300-1	language learning
+1325_030300-2	hotel-complaint
+1325_020401-2	cooking evening-enquiry
+1325_030300-1	aid project-enquiry
+1325_020400-1	internship-application
+1325_020401-1	internship fashion-application
+1071_020200	apartment-request
+1071_120302	swimming appointment
+1071_030101	congratulation
+1091_0610301	housing office-enquiry
+1091_0650102	pet sitting-request
+1091_0690403	ticket-offer
+1061_110101	New Year-letter
+1061_130101	visit-letter
+1061_170900	birthday-letter
+1023_080401	Au pair Agency-enquiry
+1023_100303	Au pair Agency-complaint
+1023_120301	internship-application
+1031_010300	learn German-essay
+1031_030301	integration issues-essay
+1031_050300	housing situation-essay
+A2PS0102_oslava	birthday invitation
+A2PS0202_more	swim in the sea-description
+A2PS0101_hotel	hotel-enquiry
+A2PS0201_hriste	playground-description
+A2PS0200_zena	photo with woman-description
+1_Alena	invitation-letter
+2_Jana	future plans-letter
+4_Katerina	Tandem agency-enquiry
+B2PS0200_doma	saying doma nejlepe-essay
+B2PS0202_kolace	proverb kolace-essay
+B2PS0202_pritel	proverb v nouzi-essay
+B2PS0201_hlava	proverb vic hlav-essay
+B2PS0200_skola	saying skola-essay
+B2PS0201_saty	proverb saty-essay
