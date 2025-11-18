@@ -1,5 +1,5 @@
 import pandas as pd
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset, Dataset, DatasetDict, concatenate_datasets
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 import torch
@@ -8,7 +8,7 @@ import numpy as np
 
 # --- Configuration ---
 # ⚠️ ACTION: REPLACE with the exact ID of your 20B GPT-OSS model (e.g., Llama-2-20B)
-MODEL_ID = "meta-llama/Llama-2-7b-hf"  # Placeholder: Use your actual 20B model ID
+MODEL_ID = "openai/gpt-oss-20b" 
 LOCAL_GEC_DATA_PATH = "/app/data/gec_training_pairs.csv"
 OUTPUT_DIR = "./gpt_oss_gec_finetuned"
 MAX_SEQ_LENGTH = 512 
@@ -77,10 +77,31 @@ def run_fine_tuning():
     # This creates a larger training set mixing GEC and Translation tasks
     train_ratio = 0.9
     
-    # Split MERLIN into train/test
-    merlin_train_len = int(len(merlin_dataset) * train_ratio)
+    # --- Corrected Data Combination Logic ---
+
+    # Split MERLIN into train/eval splits
+    merlin_train_len = int(len(merlin_dataset) * 0.9)
     merlin_train_split = merlin_dataset.select(range(merlin_train_len))
     merlin_eval_split = merlin_dataset.select(range(merlin_train_len, len(merlin_dataset)))
+
+    # 1. Create a list of all training datasets (MERLIN GEC + WMT Multilingual)
+    all_train_datasets = [
+        merlin_train_split,
+        wmt_dataset # The full WMT dataset we loaded for multilingual exposure
+    ]
+
+    # 2. Concatenate them into a single training set
+    raw_combined_dataset = concatenate_datasets(all_train_datasets)
+
+    # Shuffle the combined dataset (essential for good training)
+    raw_combined_dataset = raw_combined_dataset.shuffle(seed=42) 
+
+    # Tokenize the combined dataset (no longer a DatasetDict)
+    train_dataset = raw_combined_dataset.map(tokenize_data, batched=True, remove_columns=[col for col in raw_combined_dataset.column_names if col != 'text'])
+
+    # Set the evaluation dataset (only MERLIN data)
+    eval_dataset = merlin_eval_split.map(tokenize_data, batched=True, remove_columns=[col for col in merlin_eval_split.column_names if col not in ['text']])
+    # ---------------------------------------------
     
     # Combine WMT and MERLIN training data
     raw_combined_dataset = DatasetDict({
