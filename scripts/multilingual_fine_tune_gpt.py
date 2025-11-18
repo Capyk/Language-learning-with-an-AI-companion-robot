@@ -7,7 +7,6 @@ import os
 import numpy as np
 
 # --- Configuration ---
-# ⚠️ ACTION: REPLACE with the exact ID of your 20B GPT-OSS model (e.g., Llama-2-20B)
 MODEL_ID = "openai/gpt-oss-20b" 
 LOCAL_GEC_DATA_PATH = "/app/data/gec_training_pairs.csv"
 OUTPUT_DIR = "./gpt_oss_gec_finetuned"
@@ -16,7 +15,7 @@ MAX_SEQ_LENGTH = 512
 # --- 1. Data Preparation and Formatting (Single-String Prompt for GPT-OSS) ---
 
 def format_merlin_for_gpt(row):
-    """Formats GEC data into the single Instruction -> Correction prompt."""
+    """Formats MERLIN GEC data into the single Instruction -> Correction prompt."""
     full_prompt = (
         f"[Instruction]: Correct the following German sentence: {row['L2_Text']}\n"
         f"[Correction]: {row['TH1_Correction']}"
@@ -24,7 +23,7 @@ def format_merlin_for_gpt(row):
     return {'text': full_prompt}
 
 def format_wmt_for_gpt(example):
-    """Formats Translation data into the single Instruction -> Translation prompt."""
+    """Formats WMT Translation data into the single Instruction -> Translation prompt."""
     en_text = example['translation']['en']
     de_text = example['translation']['de']
     
@@ -37,9 +36,8 @@ def format_wmt_for_gpt(example):
 # --- 2. Tokenization and Data Mapping ---
 
 def tokenize_data(examples):
-    """Tokenizes the full prompt (Instruction + Completion) for Causal Language Modeling."""
+    """Tokenizes the full prompt (Instruction + Completion) for Causal Language Modeling (CLM)."""
     # Global tokenizer must be initialized outside this function
-    # It learns to predict the next token (the completion) in the entire sequence.
     return tokenizer(
         examples['text'], 
         truncation=True, 
@@ -52,64 +50,44 @@ def tokenize_data(examples):
 def run_fine_tuning():
     print("--- Initializing Tokenizer and Model ---")
     global tokenizer
-    # Using AutoTokenizer loads the correct vocabulary for your specific GPT-OSS base model
+    # Loads the tokenizer configuration (either from HF Hub or local path)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     
+    # Configure tokenizer for CLM (Decoder-Only) models
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-        # Add the pad token to the model's vocabulary to avoid errors
         tokenizer.add_special_tokens({'pad_token': tokenizer.eos_token}) 
 
-    # --- Data Loading and Combining ---
-    print("\n--- Loading and Combining Datasets ---")
+    # --- Data Loading and Combining (MERLIN GEC + WMT Multilingual) ---
+    print("\n--- Loading and Combining Datasets (MERLIN + WMT14) ---")
     
-    # 1. Load MERLIN GEC Data and apply instruction formatting
+    # 1. Load MERLIN GEC Data
     df_gec = pd.read_csv(LOCAL_GEC_DATA_PATH)
     merlin_dataset = Dataset.from_pandas(df_gec).map(format_merlin_for_gpt, remove_columns=df_gec.columns.tolist())
     
-    # 2. Load WMT14 Multilingual Data (Translational competence)
-    # Using a small subset of the training data for quick multilingual exposure (10,000 samples)
+    # 2. Load WMT14 Multilingual Data (for general linguistic competence)
     wmt_dataset = load_dataset("wmt14", "de-en", split="train[:10000]").map(
         format_wmt_for_gpt, remove_columns=['translation']
     )
     
-    # Combine datasets for unified training
-    # This creates a larger training set mixing GEC and Translation tasks
+    # --- Split and Concatenate Logic ---
     train_ratio = 0.9
-    
-    # --- Corrected Data Combination Logic ---
-
-    # Split MERLIN into train/eval splits
-    merlin_train_len = int(len(merlin_dataset) * 0.9)
+    merlin_train_len = int(len(merlin_dataset) * train_ratio)
     merlin_train_split = merlin_dataset.select(range(merlin_train_len))
     merlin_eval_split = merlin_dataset.select(range(merlin_train_len, len(merlin_dataset)))
 
-    # 1. Create a list of all training datasets (MERLIN GEC + WMT Multilingual)
+    # Create the final unified training dataset by concatenating MERLIN and WMT
     all_train_datasets = [
         merlin_train_split,
-        wmt_dataset # The full WMT dataset we loaded for multilingual exposure
+        wmt_dataset 
     ]
-
-    # 2. Concatenate them into a single training set
     raw_combined_dataset = concatenate_datasets(all_train_datasets)
-
-    # Shuffle the combined dataset (essential for good training)
     raw_combined_dataset = raw_combined_dataset.shuffle(seed=42) 
 
-    # Tokenize the combined dataset (no longer a DatasetDict)
+    # Tokenize the combined training dataset
     train_dataset = raw_combined_dataset.map(tokenize_data, batched=True, remove_columns=[col for col in raw_combined_dataset.column_names if col != 'text'])
 
-    # Set the evaluation dataset (only MERLIN data)
-    eval_dataset = merlin_eval_split.map(tokenize_data, batched=True, remove_columns=[col for col in merlin_eval_split.column_names if col not in ['text']])
-    # ---------------------------------------------
-    
-    # Combine WMT and MERLIN training data
-    raw_combined_dataset = DatasetDict({
-        'train': merlin_train_split.shuffle().add_batch(wmt_dataset).shuffle()
-    })
-    
-    # Tokenize the combined dataset
-    train_dataset = raw_combined_dataset['train'].map(tokenize_data, batched=True, remove_columns=[col for col in raw_combined_dataset['train'].column_names if col != 'text'])
+    # Tokenize the evaluation dataset (only MERLIN data for relevant evaluation)
     eval_dataset = merlin_eval_split.map(tokenize_data, batched=True, remove_columns=[col for col in merlin_eval_split.column_names if col not in ['text']])
     
     print(f"Total training samples: {len(train_dataset)}. Total evaluation samples: {len(eval_dataset)}")
@@ -119,11 +97,12 @@ def run_fine_tuning():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
         device_map="auto",
-        load_in_4bit=True,
-        torch_dtype=torch.bfloat16
+        load_in_4bit=True, # Use 4-bit quantization
+        torch_dtype=torch.bfloat16 # Use bfloat16 for performance
     )
     model = prepare_model_for_kbit_training(model)
     
+    # LoRA Configuration
     lora_config = LoraConfig(
         r=16, 
         lora_alpha=32,
