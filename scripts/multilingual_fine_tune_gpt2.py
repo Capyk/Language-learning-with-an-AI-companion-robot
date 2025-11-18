@@ -50,59 +50,45 @@ def tokenize_data(examples):
 def run_fine_tuning():
     print("--- Initializing Tokenizer and Model ---")
     global tokenizer
-    # Loads the tokenizer configuration (either from HF Hub or local path)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     
-    # Configure tokenizer for CLM (Decoder-Only) models
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.add_special_tokens({'pad_token': tokenizer.eos_token}) 
 
-    # --- Data Loading and Combining (MERLIN GEC + WMT Multilingual) ---
-    print("\n--- Loading and Combining Datasets (MERLIN + WMT14) ---")
+    # --- Data Loading (MERLIN ONLY for stability) ---
+    print("\n--- DEBUGGING: Loading MERLIN ONLY to Test Pipeline ---")
     
-    # 1. Load MERLIN GEC Data
+    # Load MERLIN GEC Data
     df_gec = pd.read_csv(LOCAL_GEC_DATA_PATH)
     merlin_dataset = Dataset.from_pandas(df_gec).map(format_merlin_for_gpt, remove_columns=df_gec.columns.tolist())
     
-    # 2. Load WMT14 Multilingual Data (for general linguistic competence)
-    wmt_dataset = load_dataset("wmt14", "de-en", split="train[:10000]").map(
-        format_wmt_for_gpt, remove_columns=['translation']
-    )
-    
-    # --- Split and Concatenate Logic ---
-    train_ratio = 0.9
-    merlin_train_len = int(len(merlin_dataset) * train_ratio)
-    merlin_train_split = merlin_dataset.select(range(merlin_train_len))
+    # Split MERLIN into train/eval splits
+    merlin_train_len = int(len(merlin_dataset) * 0.9)
+    train_dataset = merlin_dataset.select(range(merlin_train_len))
     merlin_eval_split = merlin_dataset.select(range(merlin_train_len, len(merlin_dataset)))
 
-    # Create the final unified training dataset by concatenating MERLIN and WMT
-    all_train_datasets = [
-        merlin_train_split,
-        wmt_dataset 
-    ]
-    raw_combined_dataset = concatenate_datasets(all_train_datasets)
-    raw_combined_dataset = raw_combined_dataset.shuffle(seed=42) 
-
-    # Tokenize the combined training dataset
-    train_dataset = raw_combined_dataset.map(tokenize_data, batched=True, remove_columns=[col for col in raw_combined_dataset.column_names if col != 'text'])
-
-    # Tokenize the evaluation dataset (only MERLIN data for relevant evaluation)
+    # Tokenize the splits
+    train_dataset = train_dataset.map(tokenize_data, batched=True, remove_columns=[col for col in train_dataset.column_names if col != 'text'])
     eval_dataset = merlin_eval_split.map(tokenize_data, batched=True, remove_columns=[col for col in merlin_eval_split.column_names if col not in ['text']])
     
     print(f"Total training samples: {len(train_dataset)}. Total evaluation samples: {len(eval_dataset)}")
     
-    # --- Model Loading (QLoRA/PEFT Setup) ---
-    print("\n--- Loading Model with QLoRA (Critical for 20B Model) ---")
+    # --- Model Loading (STABILIZED - Removed conflicting kbit preparation) ---
+    print("\n--- Loading Model (Stabilized Config) ---")
+    
+    # NOTE: The model loads the quantization config from the local MODEL_ID directory.
+    # We must remove the conflicting prepare_model_for_kbit_training
+    
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
         device_map="auto",
-        # load_in_4bit=True, # Use 4-bit quantization
-        torch_dtype=torch.bfloat16 # Use bfloat16 for performance
+        torch_dtype=torch.float16, # Use standard float16/FP16 (more compatible)
+        # load_in_4bit=True is removed as it causes conflict
     )
-    model = prepare_model_for_kbit_training(model)
-    
-    # LoRA Configuration
+    # 🛑 REMOVED: model = prepare_model_for_kbit_training(model) 
+
+    # LORA Configuration remains the same
     lora_config = LoraConfig(
         r=16, 
         lora_alpha=32,
@@ -113,15 +99,15 @@ def run_fine_tuning():
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters() 
 
-    # --- Training ---
+    # --- Training (Modified to match float16) ---
     print("\n--- Starting Supervised Fine-Tuning (SFT) ---")
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
         num_train_epochs=3, 
-        per_device_train_batch_size=2, 
-        gradient_accumulation_steps=16, # Simulates a batch size of 32
+        per_device_train_batch_size=1, # 🛑 REDUCED BATCH SIZE TO 1 for max stability
+        gradient_accumulation_steps=32, # Simulates a batch size of 32
         learning_rate=2e-4,
-        bf16=True, 
+        fp16=True, # 🛑 USE FP16 (float16) to match the model load type
         logging_steps=10,
         save_strategy="epoch",
         evaluation_strategy="epoch",
