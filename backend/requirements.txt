@@ -1,0 +1,27 @@
+## CORE BACKEND (API & SERVER) ##
+fastapi
+uvicorn[standard] # ASGI server to run FastAPI
+python-multipart # For handling form data (file uploads, etc.)
+pydantic # FastAPI dependency for data validation (usually installed with fastapi, but good practice to include)
+
+## STATE MANAGEMENT & ASYNCHRONOUS TASKS ##
+redis # Python client for Redis
+celery # Task queue for running LLM inference asynchronously
+# You will need a message broker for Celery (like RabbitMQ or Redis itself).
+# If using Redis as the broker/backend:
+# redis==5.0.1 (or latest stable version) 
+
+## LLM FINE-TUNING & GEC CORE ##
+# These are only needed on the remote machine/container where training occurs
+transformers==4.35.2 # Hugging Face library for models/tokenizers
+datasets==2.15.0   # Hugging Face library for data loading (WMT14, MERLIN)
+peft==0.7.1        # Parameter-Efficient Fine-Tuning (LoRA/QLoRA)
+accelerate==0.24.1 # Hugging Face library for parallel processing (crucial for GPU training)
+torch==2.1.1       # PyTorch framework (version depends on your CUDA version)
+scipy==1.11.4      # Required for mathematical operations in training metrics
+pandas==2.1.4      # For reading gec_training_pairs.csv
+numpy==1.26.2      # For array operations
+
+## QUANTIZATION (For 20B+ Models) ##
+# Required for 4-bit (QLoRA) model loading and training efficiency
+bitsandbytes==0.41.3 # Necessary dependency for QLoRA/kbit operations
