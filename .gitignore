@@ -1,1 +1,4 @@
 ﻿data/primary_data/merlin-paula-v1.2
+.vscode
+venv
+backend/var.env
