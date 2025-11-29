@@ -31,6 +31,12 @@ class VocabItem(BaseModel):
     english: str
     # Add a field for the LLM's confidence or source PDF page if needed later
     # source_confidence: float = 1.0 
+
+class ImageVocabItem(BaseModel):  # <-- THIS NAME MUST EXIST EXACTLY AS WRITTEN
+    """Defines the structure for a single image and its label."""
+    image_url: str
+    german_label: str
+    english_translation: str
     
 # --- D. RESPONSE SCHEMA (What the Backend Sends Back) ---
 

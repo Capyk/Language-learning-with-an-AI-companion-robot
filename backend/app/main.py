@@ -1,25 +1,49 @@
-from fastapi import FastAPI
-from . import endpoints
 # /backend/app/main.py
-from dotenv import load_dotenv
-import os
 
-# Load environment variables fro    m .env file into the system environment
+from dotenv import load_dotenv
 load_dotenv() 
 
-# Check if the key is loaded (for debugging)
-# print(os.getenv("GEMINI_API_KEY"))
+from fastapi import FastAPI
+import os
+import redis.asyncio as redis 
+from google import genai
+from . import endpoints
+from .llm_service import client, CLIENT_INITIALIZED # Import the placeholder variables
+import app.llm_service as llm_service # Import the module to call the function
 
-# Initialize the FastAPI application
-app = FastAPI(title="Pepper AI Tutor Backend")
-# ... rest of your code
+# --- Redis Initialization (Unchanged) ---
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = os.getenv("REDIS_PORT", 6379)
+# redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True) 
 
-# Initialize the FastAPI application
-app = FastAPI(title="Pepper AI Tutor Backend")
+app = FastAPI(title="AI Tutor Backend")
+app.include_router(endpoints.router)
 
-# Include the endpoints defined in endpoints.py
-app.include_router(endpoints.router, prefix="/api/v1")
+# --- Application Startup Hook ---
+
+@app.on_event("startup")
+async def startup_event():
+    """Executes necessary setup logic after the app starts loading."""
+    # 1. Initialize the Gemini Client (CRITICAL STEP)
+    try:
+        # Assign the global client object in llm_service
+        llm_service.client = genai.Client()
+        llm_service.CLIENT_INITIALIZED = True
+        print("✅ Gemini Client Initialized Successfully.")
+    except Exception as e:
+        print(f"🛑 Error initializing Gemini Client: {e}")
+        llm_service.CLIENT_INITIALIZED = False
+        
+    # 2. Verify Redis connection
+    # try:
+    #     await redis_client.ping()
+    #     print(f"✅ Successfully connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
+    # except Exception as e:
+    #     print(f"🛑 Could not connect to Redis: {e}")
+
+# Inject Redis client
+# app.state.redis = redis_client
 
 @app.get("/")
 def read_root():
-    return {"message": "Pepper Tutor Backend is Running"}
+    return {"message": "AI Tutor Backend is Live"}

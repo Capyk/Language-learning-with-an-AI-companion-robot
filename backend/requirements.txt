@@ -21,9 +21,9 @@ httpx        # Recommended async HTTP client for external API calls
 # LLM FINE-TUNING & GEC CORE (FOR TRAINING/INFERENCE)
 # ===============================================
 # NOTE: The versions of 'torch' and related libraries must match your CUDA version.
-pandas==2.1.4 
-numpy==1.26.2 
-scipy==1.11.4
+pandas>=2.2.0         # Retains recent release, compatible with numpy 1.x.
+numpy==1.26.2         # Explicitly kept for stability with pandas 2.x/torch 2.1.1.
+scipy>=1.16.0         # MUST BE UPDATED for better Python 3.13 compatibility!
 
 ## HUGGING FACE & DEEP LEARNING ##
 transformers==4.35.2
