@@ -1,5 +1,3 @@
-# /backend/app/llm_service.py (Final Fixed Version)
-
 import asyncio
 from typing import List, Dict
 import json
@@ -26,12 +24,21 @@ def build_gec_system_instruction(difficulty: str, task_type: str):
         return (f"You are a generator of German language challenges. Create ONE complex, full German sentence "
                 f"at the {difficulty} level that contains a common grammatical error (e.g., incorrect case, "
                 f"article, or verb placement). Return ONLY the flawed sentence and the corresponding correction.")
-    else: # TaskType is 'CORRECTION' (real_time_correction)
+    
+    elif task_type == 'VOCAB_CORRECTION': # <-- NEW TASK TYPE FOR VOCAB MISTAKES
+        return (f"You are a specialized German vocabulary correction assistant for learners at the {difficulty} level. "
+                f"Your task is to compare the user's input to the correct German vocabulary word and provide feedback. "
+                f"Analyze the mistake (e.g., wrong article, wrong spelling). "
+                f"Provide a concise 'corrected_text' (e.g., 'Incorrect article') and a detailed, helpful **tip in English** "
+                f"in the 'tip' field explaining the specific mistake (e.g., 'Remember 'Käse' is masculine, so use 'der').")
+
+    else: # TaskType is 'CORRECTION' (real_time_correction for GEC)
         # Prompt for correcting user input
         return (f"You are a high-precision German GEC (Grammatical Error Correction) engine. "
                 f"The user is a learner at the {difficulty} level. Your task is to correct the user's text. "
                 f"Provide ONLY the completely corrected sentence as the 'corrected_text' and a brief, encouraging feedback tip in the 'tip' field."
                 f"Then, provide a brief, encouraging feedback **tip in English** in the 'tip' field.")
+
 def build_user_prompt(topic: str):
     """Builds the simple user prompt to guide the topic selection."""
     return f"Wähle {topic}-bezogene Wörter."
@@ -47,7 +54,6 @@ async def generate_vocab_task(user_id: str, num_items: int, topic: str) -> List[
     loop = asyncio.get_event_loop()
     
     try:
-        # FIX 1: Use synchronous generate_content within run_in_executor
         response = await loop.run_in_executor(
             None,
             lambda: client.models.generate_content(
@@ -89,7 +95,6 @@ async def generate_gec_task(user_id: str, difficulty: str, task_context: str) ->
     loop = asyncio.get_event_loop()
     
     try:
-        # FIX 2: Use synchronous generate_content within run_in_executor
         response = await loop.run_in_executor(
             None,
             lambda: client.models.generate_content(
@@ -116,23 +121,36 @@ async def generate_gec_task(user_id: str, difficulty: str, task_context: str) ->
         raise Exception(f"Task generation failed: {str(e)}")
 
 
-async def real_time_correction(user_input: str, user_id: str, difficulty: str) -> dict:
-    """Analyzes the user's free-form text and provides GEC correction and feedback."""
+async def real_time_correction(user_input: str, user_id: str, difficulty: str, expected_answer: str = None) -> dict:
+    """
+    Analyzes the user's input, compares it against an expected answer (if provided), 
+    and provides correction and a detailed tip using Gemini.
+    """
     
     if not CLIENT_INITIALIZED:
         raise ConnectionError("Gemini API Client failed to initialize.")
 
+    # Determine the task type and build the prompt
+    if expected_answer:
+        # If expected_answer is present, this is a VOCAB_CORRECTION task
+        task_type = 'VOCAB_CORRECTION'
+        prompt = (f"User Input: '{user_input}'. Correct Answer: '{expected_answer}'. "
+                  f"Analyze the mistake and generate the feedback required by the system instruction.")
+    else:
+        # Otherwise, this is a general GEC correction task
+        task_type = 'CORRECTION'
+        prompt = user_input
+        
     loop = asyncio.get_event_loop()
     
     try:
-        # FIX 3: Use synchronous generate_content within run_in_executor
         response = await loop.run_in_executor(
             None,
             lambda: client.models.generate_content(
                 model='gemini-2.5-flash', 
-                contents=[types.Content(role="user", parts=[types.Part(text=user_input)])],
+                contents=[types.Content(role="user", parts=[types.Part(text=prompt)])], # Use the detailed prompt
                 config=types.GenerateContentConfig(
-                    system_instruction=build_gec_system_instruction(difficulty, 'CORRECTION'),
+                    system_instruction=build_gec_system_instruction(difficulty, task_type), # Use the correct instruction type
                     response_mime_type="application/json",
                     response_schema=types.Schema(
                         type=types.Type.OBJECT,
@@ -145,11 +163,19 @@ async def real_time_correction(user_input: str, user_id: str, difficulty: str) -
                 )
             )
         )
-        return json.loads(response.text.strip())
+        # Check if the correction service successfully identified a mistake/provided a tip
+        result = json.loads(response.text.strip())
+        
+        # If the user's input matches the expected answer, we override Gemini's GEC text with a simple "Correct!"
+        if expected_answer and user_input.strip().lower() == expected_answer.strip().lower():
+             return {"corrected_text": "Correct!", "tip": "Super gemacht! You nailed the German vocabulary."}
+
+        return result
         
     except Exception as e:
+        print(f"Gemini Correction Service Error: {e}")
         # Fallback response for failed correction service
-        return {"corrected_text": user_input, "tip": f"Correction service failed: {str(e)}"}
+        return {"corrected_text": f"Error processing input: {user_input}", "tip": f"Correction service failed: {str(e)}"}
 
 # Keep the simple validation logic for the quiz phase separate
 async def validate_answer(user_answer: str, correct_answer: str, user_id: str) -> Dict:
