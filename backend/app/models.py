@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # --- A. ENUMS (Fixed Choices) ---
 
@@ -11,6 +11,7 @@ class TaskType(str, Enum):
     GRAMMAR_DRILL = "grammar_drill"
     SENTENCE_REWRITE = "sentence_rewrite"
     VOCABULARY_GENERATION = "vocabulary_generation" # <-- New Task Type for your friend's app logic
+    GEC_CHALLENGE = "gec_challenge"
 
 # --- B. REQUEST SCHEMA (What the Robot Sends) ---
 
@@ -23,6 +24,14 @@ class TaskRequest(BaseModel):
     num_items: int = 5          # Used for quantity in IMAGE_LABELING or VOCAB_GEN
     topic: str = "general"      # Used to guide the LLM (e.g., 'food', 'travel')
 
+class SessionInit(BaseModel):
+    user_id: str
+    condition: str  # "A" (Static) or "B" (Adaptive)
+
+class AnswerSubmit(BaseModel):
+    session_id: str
+    user_answer: str
+    start_time: float # Client-side timestamp when trial started
 # --- C. TASK ITEM SCHEMA (The Core LLM Output) ---
 
 class VocabItem(BaseModel):
@@ -32,12 +41,14 @@ class VocabItem(BaseModel):
     # Add a field for the LLM's confidence or source PDF page if needed later
     # source_confidence: float = 1.0 
 
-class ImageVocabItem(BaseModel):  # <-- THIS NAME MUST EXIST EXACTLY AS WRITTEN
-    """Defines the structure for a single image and its label."""
+class ImageVocabItem(BaseModel):
+    image_id: str
     image_url: str
-    german_label: str
-    english_translation: str
-    
+    german_word: str
+    english_gloss: str
+    article: Optional[str] = None
+    plural: Optional[str] = None
+
 # --- D. RESPONSE SCHEMA (What the Backend Sends Back) ---
 
 class TaskResponse(BaseModel):

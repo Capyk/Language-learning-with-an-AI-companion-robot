@@ -1,49 +1,62 @@
 # /backend/app/main.py
 
 from dotenv import load_dotenv
-load_dotenv() 
-
-from fastapi import FastAPI
 import os
-import redis.asyncio as redis 
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from google import genai
+
+# Internal imports
 from . import endpoints
-from .llm_service import client, CLIENT_INITIALIZED # Import the placeholder variables
-import app.llm_service as llm_service # Import the module to call the function
+import app.llm_service as llm_service
 
-# --- Redis Initialization (Unchanged) ---
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = os.getenv("REDIS_PORT", 6379)
-# redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True) 
+# Load environment variables from .env file
+load_dotenv()
 
-app = FastAPI(title="AI Tutor Backend")
+app = FastAPI(title="AI Tutor Backend - Experiment Version")
+
+# --- Static Files Configuration ---
+# This allows the frontend to access images via URLs like http://localhost:8000/images/img_01.png
+# We map the physical directory 'data/images' to the URL path '/images'
+IMAGE_DIRECTORY = "data/images"
+
+if not os.path.exists(IMAGE_DIRECTORY):
+    print(f"⚠️ Warning: The directory '{IMAGE_DIRECTORY}' does not exist. Image serving may fail.")
+
+app.mount("/images", StaticFiles(directory=IMAGE_DIRECTORY), name="images")
+
+# --- Router Setup ---
+# Include the experiment and labeling endpoints
 app.include_router(endpoints.router)
 
 # --- Application Startup Hook ---
 
 @app.on_event("startup")
 async def startup_event():
-    """Executes necessary setup logic after the app starts loading."""
-    # 1. Initialize the Gemini Client (CRITICAL STEP)
+    """
+    Executes setup logic when the FastAPI server starts.
+    This includes initializing the Gemini client and checking environment health.
+    """
+    
+    # 1. Initialize the Gemini Client for the LLM service
     try:
-        # Assign the global client object in llm_service
-        llm_service.client = genai.Client()
-        llm_service.CLIENT_INITIALIZED = True
-        print("✅ Gemini Client Initialized Successfully.")
+        # Assign the global client object in llm_service module
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            print("🛑 Error: GEMINI_API_KEY not found in environment variables.")
+            llm_service.CLIENT_INITIALIZED = False
+        else:
+            llm_service.client = genai.Client(api_key=api_key)
+            llm_service.CLIENT_INITIALIZED = True
+            print("✅ Gemini Client Initialized Successfully.")
     except Exception as e:
-        print(f"🛑 Error initializing Gemini Client: {e}")
+        print(f"🛑 Critical error initializing Gemini Client: {e}")
         llm_service.CLIENT_INITIALIZED = False
-        
-    # 2. Verify Redis connection
-    # try:
-    #     await redis_client.ping()
-    #     print(f"✅ Successfully connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
-    # except Exception as e:
-    #     print(f"🛑 Could not connect to Redis: {e}")
 
-# Inject Redis client
-# app.state.redis = redis_client
+    # 2. Log server status
+    print(f"🚀 Server is running. Static images served from: {os.path.abspath(IMAGE_DIRECTORY)}")
 
 @app.get("/")
-def read_root():
-    return {"message": "AI Tutor Backend is Live"}
+async def root():
+    """Health check endpoint."""
+    return {"status": "online", "message": "AI Tutor Backend is running."}

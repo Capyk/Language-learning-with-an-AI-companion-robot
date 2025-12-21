@@ -1,208 +1,217 @@
-# /backend/app/endpoints.py (Final Version without Redis)
-
-from fastapi import APIRouter, HTTPException, Request # Request remains for future use
-from typing import Dict, List
-from uuid import uuid4
+import pandas as pd
 import random
-import json
-# Removed: import redis.asyncio as redis 
+from datetime import datetime
+from uuid import uuid4
+from typing import Dict, List, Optional
+from fastapi import APIRouter, HTTPException
 
-# Import the necessary schemas and LLM/Utility functions
-from .models import TaskType, TaskRequest, TaskResponse, ImageVocabItem 
-from .llm_service import generate_vocab_task, validate_answer, generate_gec_task, real_time_correction 
+# Import internal modules
+from .models import SessionInit, AnswerSubmit
+from .llm_service import real_time_correction
 
 router = APIRouter()
 
-# --- TEMPORARY IN-MEMORY CACHE (REPLACING REDIS) ---
-# NOTE: Data will be lost when the server restarts. Use only for demo/testing.
-TEMP_SESSION_CACHE: Dict[str, dict] = {} 
-# ---
+# --- DATA INGESTION ---
+try:
+    VOCAB_DF = pd.read_csv("vocab.csv", sep=";")
+    VOCAB_DF = VOCAB_DF.dropna(subset=['image_id', 'german_word'])
+except Exception as e:
+    print(f"Error loading vocab.csv: {e}")
+    VOCAB_DF = pd.DataFrame()
 
-# --- MOCK DATA SOURCE (Image Labeling) ---
-MOCK_IMAGE_DATA = [
-    {"url": "https://st5.depositphotos.com/1007566/67451/v/450/depositphotos_674511126-stock-illustration-meat-product-sausage-icon-isolated.jpg", "german": "die Wurst", "english": "sausage", "topic": "food"},
-    {"url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_P7IXme1ALavzmagyBiW8JWtOUg6-GgkaZw&s", "german": "der Käse", "english": "cheese", "topic": "food"},
-    {"url": "https://previews.123rf.com/images/tassiatk/tassiatk2206/tassiatk220600066/187484027-old-car-drawing-isolated-vector-retro-red-auto-without-roof-cabriolet-nastolgia-illustration.jpg", "german": "das Auto", "english": "car", "topic": "transport"},
-    {"url": "https://www.shutterstock.com/shutterstock/photos/2485852297/display_1500/stock-vector-standing-lion-african-wild-animal-lion-walking-profile-body-side-view-vector-2485852297.jpg", "german": "der Löwe", "english": "lion", "topic": "animals"},
-    {"url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSw3MMFWMwUYtn64beey1ExhARN2U7iV2Rflg&s", "german": "das Gras", "english": "grass", "topic": "garden"},
-]
+# In-memory session cache
+EXP_CACHE: Dict[str, dict] = {}
 
-# --- Internal Generator Function ---
-def _generate_image_labeling_task(num_items: int) -> List[ImageVocabItem]:
-    """Selects and formats the image and vocabulary pairs."""
-    selected_items = random.sample(MOCK_IMAGE_DATA, min(num_items, len(MOCK_IMAGE_DATA)))
+# --- UTILITY FUNCTIONS ---
+
+def prepare_experiment_items():
+    """Selects 20 unique words (4 per scenario) and sets items for Pre/Post tests."""
+    scenarios = ["apartment_request", "travel", "swimming", "pet_sitting", "birthday"]
+    learning_pool = []
     
-    task_list = []
-    for item in selected_items:
-        task_list.append(
-            ImageVocabItem(
-                image_url=item["url"],
-                german_label=item["german"],
-                english_translation=item["english"]
-            )
-        )
-    return task_list
+    for sc in scenarios:
+        cat_items = VOCAB_DF[VOCAB_DF['scenario'] == sc].to_dict('records')
+        if len(cat_items) >= 4:
+            learning_pool.extend(random.sample(cat_items, 4))
+        else:
+            learning_pool.extend(cat_items)
 
-
-@router.post("/task/create", response_model=TaskResponse)
-async def create_new_task(request: TaskRequest):
-    """Creates a new learning task based on the requested type and parameters."""
+    test_items = random.sample(learning_pool, 5)
     
-    # -----------------------------------------------------
-    # Logic for IMAGE_LABELING
-    # -----------------------------------------------------
-    if request.task_type == TaskType.IMAGE_LABELING:
-        task_payload_items = _generate_image_labeling_task(request.num_items)
-        session_id = str(uuid4())
-        
-        # Save the state to the temporary in-memory dictionary
-        TEMP_SESSION_CACHE[session_id] = {
-            "user_id": request.user_id,
-            "task_type": request.task_type.value,
-            # Convert Pydantic models to dicts for simple JSON storage
-            "items": [item.dict() for item in task_payload_items], 
-            "current_item_index": 0 
-        }
-        
-        return TaskResponse(
-            session_id=session_id,
-            task_type=request.task_type,
-            payload={"image_items": task_payload_items} 
-        )
+    task_types = ["article_mcq", "article_mcq", "plural_mcq", "plural_mcq", "type_word"]
+    random.shuffle(task_types)
     
-    # -----------------------------------------------------
-    # Logic for VOCABULARY_GENERATION
-    # -----------------------------------------------------
-    elif request.task_type == TaskType.VOCABULARY_GENERATION:
+    pre_items = [item.copy() for item in test_items]
+    post_items = [item.copy() for item in test_items]
+    
+    for i in range(len(pre_items)):
+        pre_items[i]['assigned_task'] = task_types[i]
+        post_items[i]['assigned_task'] = task_types[i]
         
-        # 1. Generate the vocabulary using the LLM Service (This is the slow, essential call)
-        vocab_items = await generate_vocab_task(
-            request.user_id, 
-            request.num_items, 
-            request.topic
-        )
-        
-        session_id = str(uuid4())
-        
-        # Save the state to the temporary in-memory dictionary
-        session_data = {
-            "user_id": request.user_id, 
-            # Convert Pydantic models to dicts for simple JSON storage
-            "items": [item.dict() for item in vocab_items], 
-            "current_item_index": 0
-        }
-        TEMP_SESSION_CACHE[session_id] = session_data
-        
-        # NOTE: The return type must match the payload structure from your models.py
-        return TaskResponse(
-            session_id=session_id, 
-            task_type=request.task_type, 
-            payload={"vocabulary_list": vocab_items}
-        )
+    return learning_pool, pre_items, post_items
 
-    # -----------------------------------------------------
-    # Logic for GEC_CHALLENGE
-    # -----------------------------------------------------
-    elif request.task_type == TaskType.GEC_CHALLENGE:
-        challenge_data = await generate_gec_task(request.user_id, request.difficulty_level, request.topic)
-        session_id = str(uuid4())
+# --- ENDPOINTS ---
+
+@router.post("/experiment/init")
+async def init_experiment(data: SessionInit):
+    session_id = str(uuid4())
+    learn_items, pre_items, post_items = prepare_experiment_items()
+    
+    EXP_CACHE[session_id] = {
+        "user_id": data.user_id,
+        "condition": data.condition,
+        "phase": "pre-test",
+        "current_index": 0,
+        "attempt_count": 0,
+        "items": {
+            "pre-test": pre_items,
+            "learning": learn_items,
+            "post-test": post_items
+        },
+        "logs": []
+    }
+    
+    return {"session_id": session_id, "condition": data.condition}
+
+@router.get("/experiment/trial/{session_id}")
+async def get_trial(session_id: str):
+    session = EXP_CACHE.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    phase = session["phase"]
+    idx = session["current_index"]
+    
+    if idx >= len(session["items"][phase]):
+        if phase == "pre-test":
+            session["phase"] = "learning"
+            session["current_index"] = 0
+        elif phase == "learning":
+            session["phase"] = "post-test"
+            session["current_index"] = 0
+        else:
+            return {"status": "completed"}
         
-        # Save the challenge and expected answer to the temporary cache
-        TEMP_SESSION_CACHE[session_id] = {
-            "user_id": request.user_id, 
-            "expected_answer": challenge_data["expected_correction"], # Save the ground truth
-            "flawed_sentence": challenge_data["flawed_sentence"]
-        }
+        phase = session["phase"]
+        idx = 0
+
+    item = session["items"][phase][idx]
+    task_type = item.get('assigned_task', 'type_word')
+    
+    options = []
+    if task_type == "article_mcq":
+        options = ["der", "die", "das"]
+    elif task_type == "plural_mcq":
+        # FIXED: Distractors are now full words (noun + suffix) to match correct answer format
+        correct = str(item['plural'])
+        base = str(item['german_word'])
         
-        return TaskResponse(
-            session_id=session_id,
-            task_type=request.task_type,
-            payload={"challenge_sentence": challenge_data["flawed_sentence"]}
-        )
+        # Possible plural patterns to generate distractors
+        suffixes = ["en", "er", "e", "s", "n"]
+        potential_distractors = [f"{base}{s}" for s in suffixes]
         
+        # Filter out the correct one and select 2 random ones
+        filtered_distractors = [d for d in potential_distractors if d.lower() != correct.lower()]
+        options = list(set([correct] + random.sample(filtered_distractors, 2)))
+        random.shuffle(options)
+
+    image_url = f"/images/{item['image_id']}.jpg"
+
+    return {
+        "phase": phase,
+        "index": idx,
+        "total_in_phase": len(session["items"][phase]),
+        "task_type": task_type,
+        "image_url": image_url,
+        "english_gloss": item['english_gloss'],
+        "options": options if options else None,
+        "german_word": item['german_word'] if task_type != "type_word" else None
+    }
+
+@router.post("/experiment/submit")
+async def submit_answer(data: AnswerSubmit):
+    session = EXP_CACHE.get(data.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    phase = session["phase"]
+    idx = session["current_index"]
+    item = session["items"][phase][idx]
+    condition = session["condition"]
+    
+    task_type = item.get('assigned_task', 'type_word')
+    if task_type == "article_mcq":
+        correct_val = item['article']
+    elif task_type == "plural_mcq":
+        correct_val = item['plural']
     else:
-        raise HTTPException(status_code=400, detail=f"Task type {request.task_type.value} not implemented or unknown.")
+        correct_val = f"{item['article']} {item['german_word']}"
 
+    is_correct = str(data.user_answer).strip() == str(correct_val).strip()
+    
+    response_time = datetime.now().timestamp() - data.start_time
+    session["logs"].append({
+        "phase": phase,
+        "item_id": item['image_id'],
+        "task_type": task_type,
+        "is_correct": is_correct,
+        "response_time": response_time,
+        "attempt": session["attempt_count"] + 1
+    })
 
-@router.post("/correction/live")
-async def process_live_correction(
-    user_id: str, 
-    user_input: str, 
-    difficulty: str = "A2"
-):
-    """Receives free-form user text and returns GEC correction and feedback."""
-    
-    correction_result = await real_time_correction(
-        user_input, user_id, difficulty
-    )
-    
-    return {
-        "user_input": user_input,
-        "correction": correction_result["corrected_text"],
-        "tip": correction_result["tip"]
-    }
+    if phase != "learning":
+        session["current_index"] += 1
+        return {"feedback": None, "is_correct": is_correct, "move_next": True}
 
-
-@router.get("/image-labeling/{index}")
-async def get_image_for_labeling(index: int):
-    """
-    Fetches image data and both German/English labels from MOCK_IMAGE_DATA 
-    based on the index.
-    """
-    if index < 0 or index >= len(MOCK_IMAGE_DATA):
-        raise HTTPException(status_code=404, detail="Image index out of bounds.")
-    
-    image_data = MOCK_IMAGE_DATA[index]
-    
-    return {
-        "image_url": image_data["url"],
-        "topic": image_data["topic"],
-        "german_label": image_data["german"],
-        "english_label": image_data["english"]
-    }
-
-
-@router.post("/image-labeling/analyze")
-async def analyze_user_label(data: dict):
-    """
-    Accepts the user's label and input, sends the user_input to Gemini 
-    via real_time_correction for detailed tip generation, and returns the feedback.
-    """
-    user_label = data.get("user_label")
-    user_input = data.get("user_input")
-    
-    if not user_label or not user_input:
-        raise HTTPException(status_code=400, detail="Both 'user_label' and 'user_input' are required.")
-    
-    # 1. Check for correctness locally (before calling Gemini)
-    # This ensures the final "correct_label" is the ground truth from MOCK_IMAGE_DATA
-    is_correct = user_label.strip().lower() == user_input.strip().lower()
-    
-    # 2. Call Gemini for the tip. We send the user's input AND the correct label
-    # to give the LLM enough context to provide a specific tip (e.g., "wrong gender").
-    # NOTE: Your real_time_correction function in llm_service.py must be updated
-    # to accept and use the 'expected_answer' (user_label) in its prompt.
-    gemini_response = await real_time_correction(
-        user_input, 
-        user_id="user_id_placeholder", 
-        difficulty="A2",
-        expected_answer=user_label # <-- PASS THE CORRECT ANSWER FOR CONTEXT
-    )
-    
-    # 3. Assemble the final feedback structure
     if is_correct:
-        correction_text = "Correct!"
-        tip_text = "Excellent! You got the noun and the article right."
+        session["current_index"] += 1
+        session["attempt_count"] = 0
+        return {
+            "is_correct": True,
+            "feedback": f"Perfect! It is '{item['article']} {item['german_word']}'.",
+            "example": item['example_de'],
+            "move_next": True
+        }
     else:
-        # Use the feedback generated by Gemini for the correction message and detailed tip
-        correction_text = gemini_response["corrected_text"]
-        tip_text = gemini_response["tip"]
+        session["attempt_count"] += 1
         
-    feedback = {
-        "correct_label": user_label,  # Use the ground truth correct label
-        "user_input": user_input,
-        "correction": correction_text,
-        "tip": tip_text # <-- THIS IS THE TIP GENERATED BY GEMINI
+        if condition == "A":
+            session["current_index"] += 1
+            session["attempt_count"] = 0
+            return {
+                "is_correct": False,
+                "feedback": f"Incorrect. The correct answer is: {item['article']} {item['german_word']}.",
+                "move_next": True
+            }
+        else:
+            if session["attempt_count"] >= 3:
+                session["current_index"] += 1
+                session["attempt_count"] = 0
+                return {
+                    "is_correct": False,
+                    # FIXED: Neutral label for revealed answer
+                    "feedback": f"The solution is: {item['article']} {item['german_word']}. {item['example_de']}",
+                    "move_next": True
+                }
+            else:
+                hint_data = await real_time_correction(
+                    user_input=data.user_answer,
+                    expected_answer=str(correct_val),
+                    attempt_number=session["attempt_count"],
+                    difficulty="A1"
+                )
+                return {
+                    "is_correct": False,
+                    "feedback": hint_data["tip"],
+                    "move_next": False
+                }
+
+@router.get("/experiment/export/{session_id}")
+async def export_data(session_id: str):
+    session = EXP_CACHE.get(session_id)
+    if not session: raise HTTPException(status_code=404)
+    return {
+        "user_id": session["user_id"],
+        "condition": session["condition"],
+        "logs": session["logs"]
     }
-    
-    return feedback
