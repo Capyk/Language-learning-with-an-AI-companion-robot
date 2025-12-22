@@ -132,78 +132,86 @@ async def get_trial(session_id: str):
 async def submit_answer(data: AnswerSubmit):
     session = EXP_CACHE.get(data.session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found.")
+        raise HTTPException(status_code=404)
     
     phase = session["phase"]
     idx = session["current_index"]
     item = session["items"][phase][idx]
-    condition = session["condition"]
     
-    task_type = item.get('assigned_task', 'type_word')
-    if task_type == "article_mcq":
+    # Correct Answer Logic
+    correct_val = f"{item['article']} {item['german_word']}"
+    if item.get('assigned_task') == "article_mcq":
         correct_val = item['article']
-    elif task_type == "plural_mcq":
+    elif item.get('assigned_task') == "plural_mcq":
         correct_val = item['plural']
-    else:
-        correct_val = f"{item['article']} {item['german_word']}"
 
     is_correct = str(data.user_answer).strip() == str(correct_val).strip()
     
-    response_time = datetime.now().timestamp() - data.start_time
-    session["logs"].append({
-        "phase": phase,
-        "item_id": item['image_id'],
-        "task_type": task_type,
-        "is_correct": is_correct,
-        "response_time": response_time,
-        "attempt": session["attempt_count"] + 1
-    })
-
+    # 1. TEST PHASES: Move immediately, simple error reveal
     if phase != "learning":
         session["current_index"] += 1
-        return {"feedback": None, "is_correct": is_correct, "move_next": True}
+        return {
+            "is_correct": is_correct,
+            "feedback": str(correct_val), # UI will format this as "Wrong. Correct answer is..."
+            "move_next": True
+        }
 
+    # 2. LEARNING PHASE
     if is_correct:
         session["current_index"] += 1
         session["attempt_count"] = 0
         return {
             "is_correct": True,
-            "feedback": f"Perfect! It is '{item['article']} {item['german_word']}'.",
+            "feedback": f"Perfect! It is '{correct_val}'.",
             "example": item['example_de'],
             "move_next": True
         }
     else:
         session["attempt_count"] += 1
         
-        if condition == "A":
+        # Condition A: Static reveal
+        if session["condition"] == "A":
             session["current_index"] += 1
             session["attempt_count"] = 0
             return {
                 "is_correct": False,
-                "feedback": f"Incorrect. The correct answer is: {item['article']} {item['german_word']}.",
+                "feedback": f"Incorrect. The correct answer is: {correct_val}.",
                 "move_next": True
             }
+        
+        # Condition B: Adaptive Scaffolding
         else:
-            if session["attempt_count"] >= 3:
-                session["current_index"] += 1
-                session["attempt_count"] = 0
+            # SIMPLE HINTS (Local logic, no API call)
+            if session["attempt_count"] == 1:
                 return {
                     "is_correct": False,
-                    # FIXED: Neutral label for revealed answer
-                    "feedback": f"The solution is: {item['article']} {item['german_word']}. {item['example_de']}",
-                    "move_next": True
+                    "feedback": "Hint: Double-check the gender of the noun and its corresponding article.",
+                    "move_next": False
+                }
+            elif session["attempt_count"] == 2:
+                return {
+                    "is_correct": False,
+                    "feedback": "Hint: Carefully review the spelling of the noun and its plural ending.",
+                    "move_next": False
                 }
             else:
-                hint_data = await real_time_correction(
+                # FINAL ATTEMPT: CALL AI for personalized summary using mistake history
+                session["current_index"] += 1
+                session["attempt_count"] = 0
+                
+                ai_data = await real_time_correction(
                     user_input=data.user_answer,
                     expected_answer=str(correct_val),
-                    attempt_number=session["attempt_count"],
-                    difficulty="A1"
+                    attempt_number=3,
+                    difficulty="A2",
+                    history=data.history
                 )
+                
                 return {
                     "is_correct": False,
-                    "feedback": hint_data["tip"],
-                    "move_next": False
+                    "feedback": f"The answer was '{correct_val}'. {ai_data['tip']}",
+                    "move_next": True,
+                    "example": item['example_de']
                 }
 
 @router.get("/experiment/export/{session_id}")

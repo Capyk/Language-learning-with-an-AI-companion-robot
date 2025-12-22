@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// --- Icons (Inline SVG Components to avoid lucide-react dependency) ---
+// --- Icons (Inline SVG Components) ---
 const Icon = {
   Send: ({ size = 24, className = "" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
@@ -28,7 +28,7 @@ const Icon = {
   )
 };
 
-// --- Types & Interfaces ---
+// --- Interfaces ---
 
 interface TrialData {
   phase: 'pre-test' | 'learning' | 'post-test';
@@ -56,7 +56,7 @@ interface SessionData {
 }
 
 const ImageLabeling: React.FC = () => {
-  // --- State Management ---
+  // --- Experiment State ---
   const [session, setSession] = useState<SessionData | null>(null);
   const [currentTrial, setCurrentTrial] = useState<TrialData | null>(null);
   const [userInput, setUserInput] = useState<string>('');
@@ -69,8 +69,9 @@ const ImageLabeling: React.FC = () => {
   const [showTransition, setShowTransition] = useState<boolean>(false);
   const [nextPhaseName, setNextPhaseName] = useState<string>('');
   const [localAttempt, setLocalAttempt] = useState<number>(1);
+  const [mistakeHistory, setMistakeHistory] = useState<string[]>([]);
 
-  // Styling effect for centering on web
+  // Web centering effects
   useEffect(() => {
     document.body.style.backgroundColor = '#f8fafc';
     document.body.style.margin = '0';
@@ -81,7 +82,6 @@ const ImageLabeling: React.FC = () => {
     return () => { document.body.style.backgroundColor = ''; };
   }, []);
 
-  // 1. Initialize Experiment
   const startExperiment = async (condition: 'A' | 'B') => {
     setIsLoading(true);
     setError(null);
@@ -105,13 +105,13 @@ const ImageLabeling: React.FC = () => {
     }
   };
 
-  // 2. Fetch Next Trial
   const fetchNextTrial = useCallback(async (sessionId: string) => {
     setIsLoading(true);
     setFeedback(null);
     setUserInput('');
     setSelectedArticle(null);
     setLocalAttempt(1);
+    setMistakeHistory([]);
     try {
       const response = await fetch(`/experiment/trial/${sessionId}`);
       const data: TrialData = await response.json();
@@ -135,18 +135,18 @@ const ImageLabeling: React.FC = () => {
     }
   }, [currentTrial]);
 
-  // 3. Submit Answer
   const submitAnswer = async (answer?: string) => {
     let finalAnswer = "";
     
     if (currentTrial?.task_type === 'type_word') {
         if (!selectedArticle) {
-            setError("Please select an article (der/die/das) first.");
+            setError("Please select an article first.");
             return;
         }
         if (!userInput.trim()) return;
 
         const trimmedInput = userInput.trim();
+        // Capitalization validation for Learning Condition B only
         if (currentTrial?.phase === 'learning' && session?.condition === 'B') {
           if (trimmedInput[0] !== trimmedInput[0].toUpperCase()) {
               setFeedback({
@@ -173,7 +173,8 @@ const ImageLabeling: React.FC = () => {
         body: JSON.stringify({
           session_id: session?.session_id,
           user_answer: finalAnswer,
-          start_time: startTime
+          start_time: startTime,
+          history: mistakeHistory
         }),
       });
       const data: FeedbackData = await response.json();
@@ -181,6 +182,7 @@ const ImageLabeling: React.FC = () => {
 
       if (!data.move_next) {
         setLocalAttempt(prev => prev + 1);
+        setMistakeHistory(prev => [...prev, finalAnswer]);
       }
     } catch (err) {
       setError("Submission failed.");
@@ -300,7 +302,6 @@ const ImageLabeling: React.FC = () => {
             </div>
           </button>
         </div>
-        {isLoading && <p className="mt-10 text-blue-500 text-lg font-bold animate-pulse">Initializing session...</p>}
       </div>
     );
   }
@@ -341,7 +342,7 @@ const ImageLabeling: React.FC = () => {
 
             {/* Right Column: Question & Interaction Area */}
             <div className="flex-1 flex flex-col justify-center gap-5">
-                <div className="space-y-1">
+                <div className="space-y-1 text-center lg:text-left">
                     <h2 className="text-2xl font-black text-slate-700 leading-tight">
                         {currentTrial?.task_type === 'article_mcq' ? 'Welcher Artikel passt?' : 
                         currentTrial?.task_type === 'plural_mcq' ? 'Wie lautet die Pluralform?' : 
@@ -378,7 +379,7 @@ const ImageLabeling: React.FC = () => {
                     </div>
                     ) : (
                     <div className="flex flex-col gap-3">
-                        {/* Article Selection Buttons */}
+                        {/* Article Selection Buttons - Darker outlines for visibility */}
                         <div className="flex gap-2.5 justify-center">
                         {['der', 'die', 'das'].map(art => (
                             <button
@@ -410,7 +411,7 @@ const ImageLabeling: React.FC = () => {
                                 ? 'bg-slate-50 border-slate-100 text-slate-300' 
                                 : 'bg-blue-50/50 border-slate-100 focus:border-blue-500 text-slate-700 placeholder-slate-300'
                             }`}
-                            placeholder="Type the noun..."
+                            placeholder="Type noun..."
                         />
                         {!feedback?.move_next && (
                             <button 
@@ -431,35 +432,66 @@ const ImageLabeling: React.FC = () => {
 
         {/* Bottom Section: Feedback and Next Task */}
         {feedback && (
-            <div className="flex flex-col gap-5 pt-2 border-t border-slate-100">
+            <div className="flex flex-col gap-5 pt-2 border-t border-slate-100 animate-in fade-in duration-500">
                 <div className={`p-6 rounded-[1.5rem] border-4 transition-all duration-500 ${
-                    feedback.is_correct ? 'bg-green-50 border-green-100 shadow-green-50' : 'bg-orange-50 border-orange-100 shadow-orange-100'
+                    feedback.is_correct 
+                        ? 'bg-green-50 border-green-100 shadow-green-50' 
+                        : (currentTrial.phase !== 'learning' ? 'bg-red-50 border-red-100 shadow-red-100' : 'bg-orange-50 border-orange-100 shadow-orange-100')
                 } shadow-md`}>
                     <div className="flex items-center gap-3 mb-3">
-                        <div className={`p-2 rounded-xl ${feedback.is_correct ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                            {feedback.is_correct ? <Icon.CheckCircle size={24} /> : (feedback.move_next ? <Icon.Info size={24} /> : <Icon.PlayCircle size={24} />)}
+                        <div className={`p-2 rounded-xl ${
+                            feedback.is_correct 
+                                ? 'bg-green-100 text-green-600' 
+                                : (currentTrial.phase !== 'learning' ? 'bg-red-100 text-red-600' : (feedback.move_next ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'))
+                        }`}>
+                            {feedback.is_correct ? <Icon.CheckCircle size={24} /> : (currentTrial.phase !== 'learning' ? <Icon.XCircle size={24} /> : <Icon.Info size={24} />)}
                         </div>
                         <p className="text-xl font-black text-slate-700 uppercase tracking-widest">
-                            {feedback.is_correct ? 'Correct!' : (feedback.move_next ? 'Solution' : 'Hint')}
+                            {feedback.is_correct 
+                                ? 'Correct!' 
+                                : (currentTrial.phase !== 'learning' 
+                                    ? 'Wrong' 
+                                    : (feedback.move_next ? 'Correction Tip' : 'Hint'))}
                         </p>
                     </div>
                     
-                    <p className="text-slate-600 text-lg font-medium leading-relaxed mb-3">
-                        {feedback.feedback}
-                    </p>
+                    {/* Feedback content area */}
+                    <div className="space-y-4">
+                        {/* Pre-test/Post-test Incorrect display */}
+                        {currentTrial.phase !== 'learning' && !feedback.is_correct ? (
+                            <p className="text-slate-700 text-xl font-medium">
+                                The correct answer is: <span className="underline font-black text-red-700">{feedback.feedback}</span>
+                            </p>
+                        ) : (
+                            <div className="space-y-4">
+                                {feedback.move_next && !feedback.is_correct && currentTrial.phase === 'learning' && session.condition === 'B' ? (
+                                    <div className="bg-white/40 p-4 rounded-2xl border-l-8 border-blue-500">
+                                        <p className="text-blue-700 font-bold text-lg uppercase tracking-tight mb-2">Personalized Correction Tip:</p>
+                                        <p className="text-slate-700 text-lg font-medium leading-relaxed italic">
+                                            {feedback.feedback}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-700 text-lg font-medium leading-relaxed">
+                                        {feedback.feedback}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
-                    {feedback.example && (
-                        <div className="mt-4 p-4 bg-white/60 rounded-xl border-2 border-green-50 shadow-sm">
-                            <p className="text-slate-500 italic text-lg font-semibold leading-relaxed">"{feedback.example}"</p>
-                        </div>
-                    )}
+                        {feedback.example && (
+                            <div className="mt-4 p-4 bg-white/60 rounded-xl border-2 border-green-50 shadow-sm">
+                                <p className="text-slate-500 italic text-lg font-semibold leading-relaxed">"{feedback.example}"</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Manual Navigation - Web-style Button */}
+                {/* Manual Navigation - Big Web-style Button */}
                 {feedback.move_next && (
                     <button
                         onClick={() => { if (session) fetchNextTrial(session.session_id); }}
-                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-[0.98] group"
+                        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-[0.98] group"
                     >
                         NEXT TASK 
                         <Icon.ArrowRight size={24} className="group-hover:translate-x-1.5 transition-transform" />

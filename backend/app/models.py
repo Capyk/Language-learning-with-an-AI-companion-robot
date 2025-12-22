@@ -31,7 +31,9 @@ class SessionInit(BaseModel):
 class AnswerSubmit(BaseModel):
     session_id: str
     user_answer: str
-    start_time: float # Client-side timestamp when trial started
+    start_time: float
+    history: Optional[List[str]] = [] # Track previous failed attempts for this item
+    
 # --- C. TASK ITEM SCHEMA (The Core LLM Output) ---
 
 class VocabItem(BaseModel):
