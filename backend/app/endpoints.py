@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 
 # Import internal modules
-from .models import SessionInit, AnswerSubmit
+from .models import SessionInit, AnswerSubmit, SkipPhaseRequest
 from .llm_service import real_time_correction
 
 router = APIRouter()
@@ -128,6 +128,21 @@ async def get_trial(session_id: str):
         "german_word": item['german_word'] if task_type != "type_word" else None
     }
 
+@router.post("/experiment/skip")
+async def skip_to_phase(data: SkipPhaseRequest):
+    """Jumps to a specific experiment phase for testing."""
+    session = EXP_CACHE.get(data.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if data.phase not in session["items"]:
+        raise HTTPException(status_code=400, detail="Invalid phase")
+    
+    session["phase"] = data.phase
+    session["current_index"] = 0
+    session["attempt_count"] = 0
+    return {"status": "ok", "new_phase": data.phase}
+
 @router.post("/experiment/submit")
 async def submit_answer(data: AnswerSubmit):
     session = EXP_CACHE.get(data.session_id)
@@ -138,7 +153,7 @@ async def submit_answer(data: AnswerSubmit):
     idx = session["current_index"]
     item = session["items"][phase][idx]
     
-    # Correct Answer Logic
+    # Determine the correct answer based on the task type
     correct_val = f"{item['article']} {item['german_word']}"
     if item.get('assigned_task') == "article_mcq":
         correct_val = item['article']
@@ -147,12 +162,12 @@ async def submit_answer(data: AnswerSubmit):
 
     is_correct = str(data.user_answer).strip() == str(correct_val).strip()
     
-    # 1. TEST PHASES: Move immediately, simple error reveal
+    # 1. TEST PHASES (Pre-test / Post-test)
     if phase != "learning":
         session["current_index"] += 1
         return {
-            "is_correct": is_correct,
-            "feedback": str(correct_val), # UI will format this as "Wrong. Correct answer is..."
+            "is_correct": is_correct, 
+            "feedback": str(correct_val), 
             "move_next": True
         }
 
@@ -161,59 +176,59 @@ async def submit_answer(data: AnswerSubmit):
         session["current_index"] += 1
         session["attempt_count"] = 0
         return {
-            "is_correct": True,
-            "feedback": f"Perfect! It is '{correct_val}'.",
-            "example": item['example_de'],
+            "is_correct": True, 
+            "feedback": f"Perfect! It is '{correct_val}'.", 
+            "example": item['example_de'], 
             "move_next": True
         }
     else:
         session["attempt_count"] += 1
         
-        # Condition A: Static reveal
+        # Condition A: Static (Reveal immediately)
         if session["condition"] == "A":
             session["current_index"] += 1
             session["attempt_count"] = 0
             return {
-                "is_correct": False,
-                "feedback": f"Incorrect. The correct answer is: {correct_val}.",
+                "is_correct": False, 
+                "feedback": f"Incorrect. The correct answer is: {correct_val}.", 
                 "move_next": True
             }
         
-        # Condition B: Adaptive Scaffolding
+        # Condition B: Adaptive (Hints then reveal)
         else:
-            # SIMPLE HINTS (Local logic, no API call)
-            if session["attempt_count"] == 1:
-                return {
-                    "is_correct": False,
-                    "feedback": "Hint: Double-check the gender of the noun and its corresponding article.",
-                    "move_next": False
-                }
-            elif session["attempt_count"] == 2:
-                return {
-                    "is_correct": False,
-                    "feedback": "Hint: Carefully review the spelling of the noun and its plural ending.",
-                    "move_next": False
-                }
-            else:
-                # FINAL ATTEMPT: CALL AI for personalized summary using mistake history
+            if session["attempt_count"] >= 3:
+                # Final Attempt: Reveal answer + AI Correction Tip
                 session["current_index"] += 1
                 session["attempt_count"] = 0
-                
                 ai_data = await real_time_correction(
-                    user_input=data.user_answer,
-                    expected_answer=str(correct_val),
-                    attempt_number=3,
-                    difficulty="A2",
-                    history=data.history
+                    data.user_answer, 
+                    str(correct_val), 
+                    3, 
+                    "A2", 
+                    data.history
                 )
-                
                 return {
-                    "is_correct": False,
-                    "feedback": f"The answer was '{correct_val}'. {ai_data['tip']}",
-                    "move_next": True,
+                    "is_correct": False, 
+                    "feedback": f"The answer was '{correct_val}'. {ai_data['tip']}", 
+                    "move_next": True, 
                     "example": item['example_de']
                 }
-
+            
+            # Simple Scaffolding Hints (Attempt 1 and 2)
+            # These are generated via the AI service with lower complexity prompts
+            ai_data = await real_time_correction(
+                data.user_answer, 
+                str(correct_val), 
+                session["attempt_count"], 
+                "A2", 
+                data.history
+            )
+            return {
+                "is_correct": False, 
+                "feedback": ai_data['tip'], 
+                "move_next": False
+            }
+        
 @router.get("/experiment/export/{session_id}")
 async def export_data(session_id: str):
     session = EXP_CACHE.get(session_id)

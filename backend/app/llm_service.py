@@ -43,24 +43,47 @@ def build_user_prompt(topic: str):
 
 async def real_time_correction(user_input: str, expected_answer: str, attempt_number: int, difficulty: str, history: list = None) -> dict:
     """
-    Generates a personalized pedagogical summary in English based on mistake history.
-    Now used ONLY after 3 failed attempts to provide high-level analysis.
+    Generates specific pedagogical hints based on the attempt number.
+    - Attempt 1: Subtle category/gender hint.
+    - Attempt 2: Structural hint (e.g., first two letters).
+    - Attempt 3+: Personalized pedagogical summary based on mistake history.
     """
     if not CLIENT_INITIALIZED:
         return {"tip": "Please review the gender and spelling of this noun."}
 
-    # Format history for the AI
+    # Format history for the AI to allow pattern analysis
     history_context = f" The learner made the following attempts: {', '.join(history)}." if history else ""
 
-    # Instruction for the final personalized tip
-    # Strictly enforced English-only feedback.
+    # Differentiate logic based on attempt number to provide progressive scaffolding
+    if attempt_number == 1:
+        # Level 1: Subtle category focus
+        task_desc = (
+            f"The goal is '{expected_answer}'. User said '{user_input}'. "
+            "Give a very subtle pedagogical hint in English (max 10 words). "
+            "Focus on the gender category or word type. NEVER mention specific letters."
+        )
+    elif attempt_number == 2:
+        # Level 2: Strong structural focus (First letters)
+        start_hint = expected_answer[:2] if len(expected_answer) > 2 else expected_answer[0]
+        task_desc = (
+            f"The goal is '{expected_answer}'. User failed twice. User said '{user_input}'.{history_context} "
+            f"Give a strong structural hint in English. Mention that the word starts with '{start_hint}' "
+            "or point out exactly which part is misspelled."
+        )
+    else:
+        # Level 3: Final Personalized Analysis
+        task_desc = (
+            f"The learner failed 3 times to get '{expected_answer}'. Mistake history: {history_context} "
+            "Provide a personalized pedagogical summary in English (max 20 words). "
+            "Analyze WHY their attempts were wrong (e.g., 'You seem to be confusing masculine and feminine articles'). "
+            "Provide one clear tip for them to remember this next time."
+        )
+
     system_instruction = (
         f"You are a professional AI German Tutor for {difficulty} level. "
-        f"User target: '{expected_answer}'. {history_context} "
-        f"TASK: Analyze the user's specific pattern of mistakes and provide a PERSONALIZED CORRECTION TIP in English. "
-        f"Explain why their attempts were incorrect (e.g., 'You seem to be confusing masculine and feminine articles'). "
-        f"CRITICAL: The entire response must be in English. Do not use German in the explanation, "
-        f"even if you are talking about German grammar rules. Keep it to 1-2 short sentences."
+        f"TASK: {task_desc} "
+        f"CRITICAL: The entire response must be in English. Do not use German in the explanation. "
+        f"Keep the response to exactly ONE short sentence."
     )
 
     try:

@@ -33,7 +33,11 @@ class AnswerSubmit(BaseModel):
     user_answer: str
     start_time: float
     history: Optional[List[str]] = [] # Track previous failed attempts for this item
-    
+
+class SkipPhaseRequest(BaseModel):
+    session_id: str
+    phase: str # 'pre-test', 'learning', 'post-test'
+
 # --- C. TASK ITEM SCHEMA (The Core LLM Output) ---
 
 class VocabItem(BaseModel):
