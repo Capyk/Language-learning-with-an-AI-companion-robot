@@ -1,54 +1,71 @@
 import pandas as pd
 import random
-from datetime import datetime
 from uuid import uuid4
-from typing import Dict, List, Optional
+from typing import Dict, List
 from fastapi import APIRouter, HTTPException
 
-# Import internal modules
-from .models import SessionInit, AnswerSubmit, SkipPhaseRequest
-from .llm_service import real_time_correction
+from .models import SessionInit, AnswerSubmit, SkipPhaseRequest, LearningScreen
+from .llm_service import generate_static_learning_path_A, generate_adaptive_learning_path_B, real_time_correction
 
 router = APIRouter()
 
-# --- DATA INGESTION ---
+# --- DATA LOADING ---
 try:
     VOCAB_DF = pd.read_csv("vocab.csv", sep=";")
     VOCAB_DF = VOCAB_DF.dropna(subset=['image_id', 'german_word'])
 except Exception as e:
-    print(f"Error loading vocab.csv: {e}")
+    print(f"Error loading CSV: {e}")
     VOCAB_DF = pd.DataFrame()
 
-# In-memory session cache
 EXP_CACHE: Dict[str, dict] = {}
 
-# --- UTILITY FUNCTIONS ---
-
 def prepare_experiment_items():
-    """Selects 20 unique words (4 per scenario) and sets items for Pre/Post tests."""
+    """
+    Losuje 5 unikalnych słów i przydziela typy zadań według nowej strategii:
+    - 3 zadania to na pewno 'type_word' (wpisywanie).
+    - 2 zadania to 50/50 szansa na 'plural_mcq' lub 'type_word'.
+    - Brak zadania 'article_mcq'.
+    """
     scenarios = ["apartment_request", "travel", "swimming", "pet_sitting", "birthday"]
     learning_pool = []
     
+    # Pobieramy słowa z każdej kategorii
     for sc in scenarios:
         cat_items = VOCAB_DF[VOCAB_DF['scenario'] == sc].to_dict('records')
         if len(cat_items) >= 4:
             learning_pool.extend(random.sample(cat_items, 4))
         else:
-            learning_pool.extend(cat_items)
-
+            learning_pool.extend(cat_items)    
+            
+    # Wybieramy 5 słów do sesji
     test_items = random.sample(learning_pool, 5)
-    
-    task_types = ["article_mcq", "article_mcq", "plural_mcq", "plural_mcq", "type_word"]
-    random.shuffle(task_types)
     
     pre_items = [item.copy() for item in test_items]
     post_items = [item.copy() for item in test_items]
     
+    # --- NOWA LOGIKA PRZYDZIELANIA ZADAŃ ---
+    task_types = []
+    
+    # 1. Trzy gwarantowane zadania na wpisywanie
+    for _ in range(3):
+        task_types.append("type_word")
+        
+    # 2. Dwa zadania losowane (50% Plural MCQ / 50% Wpisywanie)
+    for _ in range(2):
+        if random.random() < 0.5:
+            task_types.append("plural_mcq")
+        else:
+            task_types.append("type_word")
+            
+    # 3. Mieszamy kolejność typów zadań, żeby nie było zawsze tak samo
+    random.shuffle(task_types)
+    
+    # Przypisujemy te same typy zadań do pre-testu i post-testu dla spójności
     for i in range(len(pre_items)):
         pre_items[i]['assigned_task'] = task_types[i]
         post_items[i]['assigned_task'] = task_types[i]
         
-    return learning_pool, pre_items, post_items
+    return test_items, pre_items, post_items
 
 # --- ENDPOINTS ---
 
@@ -57,184 +74,154 @@ async def init_experiment(data: SessionInit):
     session_id = str(uuid4())
     learn_items, pre_items, post_items = prepare_experiment_items()
     
-    EXP_CACHE[session_id] = {
+    session_data = {
         "user_id": data.user_id,
         "condition": data.condition,
         "phase": "pre-test",
         "current_index": 0,
-        "attempt_count": 0,
         "items": {
             "pre-test": pre_items,
-            "learning": learn_items,
+            "learning_raw": learn_items,
+            "learning_path": [],
             "post-test": post_items
         },
         "logs": []
     }
     
+    if data.condition == "A":
+        session_data["items"]["learning_path"] = generate_static_learning_path_A(learn_items)
+
+    EXP_CACHE[session_id] = session_data
     return {"session_id": session_id, "condition": data.condition}
 
 @router.get("/experiment/trial/{session_id}")
 async def get_trial(session_id: str):
     session = EXP_CACHE.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found.")
-    
+    if not session: raise HTTPException(status_code=404)
     phase = session["phase"]
     idx = session["current_index"]
-    
-    if idx >= len(session["items"][phase]):
-        if phase == "pre-test":
-            session["phase"] = "learning"
-            session["current_index"] = 0
-        elif phase == "learning":
+
+    # Faza Nauki
+    if phase == "learning":
+        path = session["items"]["learning_path"]
+        if idx >= len(path):
             session["phase"] = "post-test"
             session["current_index"] = 0
-        else:
-            return {"status": "completed"}
+            return await get_trial(session_id)
         
-        phase = session["phase"]
-        idx = 0
+        return {
+            "phase": "learning",
+            "index": idx,
+            "total_in_phase": len(path),
+            "task_type": "learning_step",
+            "payload": path[idx]
+        }
 
-    item = session["items"][phase][idx]
-    task_type = item.get('assigned_task', 'type_word')
+    # Pre/Post Test
+    items_list = session["items"][phase]
+    if idx >= len(items_list):
+        if phase == "post-test": return {"status": "completed"}
+        return {"status": "transition"}
+
+    item = items_list[idx]
+    options = None
     
-    options = []
-    if task_type == "article_mcq":
-        options = ["der", "die", "das"]
-    elif task_type == "plural_mcq":
-        # FIXED: Distractors are now full words (noun + suffix) to match correct answer format
-        correct = str(item['plural'])
-        base = str(item['german_word'])
+    # Generowanie opcji tylko dla Plural MCQ (bo article_mcq usunięte)
+    if item.get('assigned_task') == 'plural_mcq':
+        correct = str(item.get('plural', ''))
+        base = str(item.get('german_word', ''))
         
-        # Possible plural patterns to generate distractors
-        suffixes = ["en", "er", "e", "s", "n"]
-        potential_distractors = [f"{base}{s}" for s in suffixes]
+        # Algorytm generowania fałszywych odpowiedzi (dystraktorów)
+        # Tworzy typowe niemieckie końcówki liczby mnogiej
+        suffixes = ["n", "en", "e", "s", "er", "¨e", "¨er"]
+        potential_distractors = []
         
-        # Filter out the correct one and select 2 random ones
-        filtered_distractors = [d for d in potential_distractors if d.lower() != correct.lower()]
-        options = list(set([correct] + random.sample(filtered_distractors, 2)))
-        random.shuffle(options)
+        for s in suffixes:
+            # Prosta symulacja: dodajemy końcówkę do słowa
+            candidate = f"{base}{s}"
+            # Jeśli wygenerowane słowo jest inne niż poprawne, dodajemy do listy
+            if candidate.lower() != correct.lower() and candidate.lower() != base.lower():
+                potential_distractors.append(candidate)
+        
+        # Jeśli z jakiegoś powodu lista pusta, dodaj cokolwiek
+        if not potential_distractors:
+            potential_distractors = [f"{base}en", f"{base}s"]
 
-    image_url = f"/images/{item['image_id']}.jpg"
+        # Wybierz 2 unikalne błędne odpowiedzi
+        distractors = list(set(potential_distractors))
+        if len(distractors) > 2:
+            distractors = random.sample(distractors, 2)
+            
+        options = list(set([correct] + distractors))
+        random.shuffle(options)
 
     return {
         "phase": phase,
         "index": idx,
-        "total_in_phase": len(session["items"][phase]),
-        "task_type": task_type,
-        "image_url": image_url,
+        "total_in_phase": len(items_list),
+        "task_type": item.get('assigned_task', 'type_word'),
+        "image_url": f"/images/{item['image_id']}.jpg",
         "english_gloss": item['english_gloss'],
-        "options": options if options else None,
-        "german_word": item['german_word'] if task_type != "type_word" else None
+        "options": options
     }
-
-@router.post("/experiment/skip")
-async def skip_to_phase(data: SkipPhaseRequest):
-    """Jumps to a specific experiment phase for testing."""
-    session = EXP_CACHE.get(data.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    if data.phase not in session["items"]:
-        raise HTTPException(status_code=400, detail="Invalid phase")
-    
-    session["phase"] = data.phase
-    session["current_index"] = 0
-    session["attempt_count"] = 0
-    return {"status": "ok", "new_phase": data.phase}
 
 @router.post("/experiment/submit")
 async def submit_answer(data: AnswerSubmit):
     session = EXP_CACHE.get(data.session_id)
-    if not session:
-        raise HTTPException(status_code=404)
-    
-    phase = session["phase"]
-    idx = session["current_index"]
-    item = session["items"][phase][idx]
-    
-    # Determine the correct answer based on the task type
-    correct_val = f"{item['article']} {item['german_word']}"
-    if item.get('assigned_task') == "article_mcq":
-        correct_val = item['article']
-    elif item.get('assigned_task') == "plural_mcq":
-        correct_val = item['plural']
-
-    is_correct = str(data.user_answer).strip() == str(correct_val).strip()
-    
-    # 1. TEST PHASES (Pre-test / Post-test)
-    if phase != "learning":
-        session["current_index"] += 1
-        return {
-            "is_correct": is_correct, 
-            "feedback": str(correct_val), 
-            "move_next": True
-        }
-
-    # 2. LEARNING PHASE
-    if is_correct:
-        session["current_index"] += 1
-        session["attempt_count"] = 0
-        return {
-            "is_correct": True, 
-            "feedback": f"Perfect! It is '{correct_val}'.", 
-            "example": item['example_de'], 
-            "move_next": True
-        }
-    else:
-        session["attempt_count"] += 1
-        
-        # Condition A: Static (Reveal immediately)
-        if session["condition"] == "A":
-            session["current_index"] += 1
-            session["attempt_count"] = 0
-            return {
-                "is_correct": False, 
-                "feedback": f"Incorrect. The correct answer is: {correct_val}.", 
-                "move_next": True
-            }
-        
-        # Condition B: Adaptive (Hints then reveal)
-        else:
-            if session["attempt_count"] >= 3:
-                # Final Attempt: Reveal answer + AI Correction Tip
-                session["current_index"] += 1
-                session["attempt_count"] = 0
-                ai_data = await real_time_correction(
-                    data.user_answer, 
-                    str(correct_val), 
-                    3, 
-                    "A2", 
-                    data.history
-                )
-                return {
-                    "is_correct": False, 
-                    "feedback": f"The answer was '{correct_val}'. {ai_data['tip']}", 
-                    "move_next": True, 
-                    "example": item['example_de']
-                }
-            
-            # Simple Scaffolding Hints (Attempt 1 and 2)
-            # These are generated via the AI service with lower complexity prompts
-            ai_data = await real_time_correction(
-                data.user_answer, 
-                str(correct_val), 
-                session["attempt_count"], 
-                "A2", 
-                data.history
-            )
-            return {
-                "is_correct": False, 
-                "feedback": ai_data['tip'], 
-                "move_next": False
-            }
-        
-@router.get("/experiment/export/{session_id}")
-async def export_data(session_id: str):
-    session = EXP_CACHE.get(session_id)
     if not session: raise HTTPException(status_code=404)
-    return {
-        "user_id": session["user_id"],
-        "condition": session["condition"],
-        "logs": session["logs"]
-    }
+    phase = session["phase"]
+    
+    if phase == "learning":
+        session["current_index"] += 1
+        return {"is_correct": True, "move_next": True}
+
+    items = session["items"][phase]
+    if session["current_index"] >= len(items):
+        return {"is_correct": False, "move_next": False, "transition": True}
+
+    item = items[session["current_index"]]
+    
+    # Walidacja odpowiedzi
+    correct_val = ""
+    if item.get('assigned_task') == 'type_word':
+        # Wymagamy: Rodzajnik + Spacja + Słowo
+        correct_val = f"{item.get('article','')} {item.get('german_word','')}"
+    elif item.get('assigned_task') == 'plural_mcq':
+        correct_val = item.get('plural','')
+    
+    # Porównanie (case-insensitive dla testu, można zmienić na sensitive usuwając .lower())
+    is_correct = str(correct_val).strip().lower() == data.user_answer.strip().lower()
+    
+    if phase == "pre-test":
+        session["logs"].append({
+            "word": item.get('german_word'),
+            "is_correct": is_correct,
+            "user_input": data.user_answer,
+            "task_type": item.get('assigned_task')
+        })
+
+    session["current_index"] += 1
+    
+    # Sprawdzenie końca fazy
+    if phase == "pre-test" and session["current_index"] >= len(items):
+        if session["condition"] == "B":
+            path_b = await generate_adaptive_learning_path_B(session["items"]["learning_raw"], session["logs"])
+            session["items"]["learning_path"] = path_b
+        elif session["condition"] == "A" and not session["items"]["learning_path"]:
+             session["items"]["learning_path"] = generate_static_learning_path_A(session["items"]["learning_raw"])
+            
+        session["phase"] = "learning"
+        session["current_index"] = 0
+        return {"is_correct": is_correct, "move_next": True, "transition": "learning", "feedback": f"Correct: {correct_val}"}
+
+    return {"is_correct": is_correct, "move_next": True, "feedback": f"Correct: {correct_val}"}
+
+@router.post("/experiment/skip")
+async def skip_to_phase(data: SkipPhaseRequest):
+    session = EXP_CACHE.get(data.session_id)
+    if session:
+        session["phase"] = data.phase
+        session["current_index"] = 0
+        if data.phase == "learning" and not session["items"]["learning_path"]:
+             session["items"]["learning_path"] = generate_static_learning_path_A(session["items"]["learning_raw"])
+    return {"status": "ok"}

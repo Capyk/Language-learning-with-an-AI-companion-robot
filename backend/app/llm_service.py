@@ -1,143 +1,230 @@
 import asyncio
-from typing import List, Dict
+import random
 import json
+import logging
+from typing import List, Dict
 from google import genai
 from google.genai import types
 
-# --- Client Placeholder (Set by main.py startup hook) ---
+# Logger configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 client = None 
 CLIENT_INITIALIZED = False
-# ---
 
-# --- Utility Functions ---
-
-def build_vocab_system_instruction(num_items: int):
-    """Builds the system instruction for structured JSON vocabulary output."""
-    return f"""You are an assistant selecting exactly {num_items} thematically related German vocabulary words 
-    and their English translations, suitable for an A2 level. You MUST output your answer exclusively as a valid JSON array.
-    Your answer must strictly adhere to the defined JSON schema. Do NOT include any explanations or text outside the JSON structure."""
-
-def build_gec_system_instruction(difficulty: str, task_type: str):
-    """Builds the system instruction for GEC generation/correction tasks."""
-    if task_type == 'GEC_CHALLENGE':
-        return (f"You are a generator of German language challenges. Create ONE complex, full German sentence "
-                f"at the {difficulty} level that contains a common grammatical error (e.g., incorrect case, "
-                f"article, or verb placement). Return ONLY the flawed sentence and the corresponding correction.")
+# --- STATIC GENERATOR (Group A) ---
+# (Zostawiamy bez zmian, jak w poprzedniej wersji)
+def generate_static_learning_path_A(words: List[Dict]) -> List[Dict]:
+    intro_screens = []
+    presentation_screens = []
+    practice_screens = []
+    outro_screens = []
     
-    elif task_type == 'VOCAB_CORRECTION':
-        return (f"You are a specialized German vocabulary correction assistant for learners at the {difficulty} level. "
-                f"Your task is to compare the user's input to the correct German vocabulary word and provide feedback. "
-                f"Analyze the mistake (e.g., wrong article, wrong spelling). "
-                f"Provide a concise 'corrected_text' (e.g., 'Incorrect article') and a detailed, helpful **tip in English** "
-                f"in the 'tip' field explaining the specific mistake.")
+    # 1. Intro
+    intro_screens.append({
+        "step_number": 0,
+        "title": "Module Start",
+        "content": "First, study all 5 words carefully. Then, we will shuffle the exercises to test your memory.",
+        "visual_type": "intro",
+        "interaction_type": "read_only"
+    })
 
-    else:
-        return (f"You are a high-precision German GEC (Grammatical Error Correction) engine. "
-                f"The user is a learner at the {difficulty} level. Your task is to correct the user's text. "
-                f"Provide ONLY the completely corrected sentence as the 'corrected_text' and a brief, encouraging feedback tip in English in the 'tip' field.")
+    # Loop through words to create screens
+    for i, word in enumerate(words):
+        img_url = f"/images/{word.get('image_id')}.jpg"
+        german = word.get('german_word', '')
+        article = word.get('article', '')
+        plural = word.get('plural', '')
+        english = word.get('english_gloss', '')
+        sentence = word.get('example_de', '')
+        
+        # --- PHASE 1: Presentation ---
+        presentation_screens.append({
+            "step_number": 0,
+            "title": f"Learn: {english}",
+            "content": "Memorize the word, article and plural.",
+            "visual_type": "word_card",
+            "german_word": german,
+            "article": article,
+            "plural": plural,
+            "image_url": img_url,
+            "example_sentence": sentence,
+            "interaction_type": "read_only"
+        })
 
-def build_user_prompt(topic: str):
-    """Builds the simple user prompt to guide the topic selection."""
-    return f"Wähle {topic}-bezogene Wörter."
+        # --- PHASE 2: Practice Items ---
+        
+        # A. Spelling Check
+        context_sentence = sentence.replace(german, "_______")
+        practice_screens.append({
+            "step_number": 0,
+            "title": f"Practice: {english}",
+            "content": f"Type the missing word exactly (Watch out for Capital letters!):",
+            "visual_type": "challenge",
+            "image_url": img_url,
+            "question_context": context_sentence,
+            "german_word": german,
+            "interaction_type": "fill_gap"
+        })
+
+        # B. Gender Check
+        practice_screens.append({
+            "step_number": 0,
+            "title": f"Gender Check: {german}",
+            "content": f"Select the correct article for '{german}':",
+            "visual_type": "challenge",
+            "question_context": f"___ {german}",
+            "german_word": article, 
+            "interaction_type": "choice",
+            "options": ["der", "die", "das"]
+        })
+
+    random.shuffle(practice_screens)
+
+    outro_screens.append({
+        "step_number": 0,
+        "title": "Ready!",
+        "content": "Great job! You have practiced all words. Starting the final test now.",
+        "visual_type": "intro",
+        "interaction_type": "read_only"
+    })
+    
+    full_path = intro_screens + presentation_screens + practice_screens + outro_screens
+    
+    for idx, screen in enumerate(full_path):
+        screen['step_number'] = idx + 1
+
+    return full_path
 
 
-async def real_time_correction(user_input: str, expected_answer: str, attempt_number: int, difficulty: str, history: list = None) -> dict:
+# --- ADAPTIVE GENERATOR (Group B - AI POWERED) ---
+async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[Dict]) -> List[Dict]:
     """
-    Generates specific pedagogical hints based on the attempt number.
-    - Attempt 1: Subtle category/gender hint.
-    - Attempt 2: Structural hint (e.g., first two letters).
-    - Attempt 3+: Personalized pedagogical summary based on mistake history.
+    Uses Gemini to generate a personalized learning path based on pre-test errors.
     """
+    # 1. Safety Check: If API not ready, fallback to Static
     if not CLIENT_INITIALIZED:
-        return {"tip": "Please review the gender and spelling of this noun."}
+        print("⚠️ LLM not initialized. Falling back to Static Path A.")
+        return generate_static_learning_path_A(words)
 
-    # Format history for the AI to allow pattern analysis
-    history_context = f" The learner made the following attempts: {', '.join(history)}." if history else ""
+    # 2. Analyze User Performance
+    performance_summary = []
+    incorrect_words = []
+    
+    for word_data in words:
+        german = word_data.get('german_word')
+        # Find logs related to this word
+        related_logs = [log for log in error_logs if log.get('word') == german]
+        
+        if not related_logs:
+            # No data (shouldn't happen if pre-test covers all), assume correct
+            status = "correct"
+        else:
+            # Check if any attempt was wrong
+            is_correct = all(log.get('is_correct') for log in related_logs)
+            if is_correct:
+                status = "correct"
+            else:
+                status = "incorrect"
+                incorrect_words.append(german)
+                # Analyze specific error (e.g., used wrong article)
+                last_input = related_logs[-1].get('user_input', '')
+                status += f" (User typed: '{last_input}')"
 
-    # Differentiate logic based on attempt number to provide progressive scaffolding
-    if attempt_number == 1:
-        # Level 1: Subtle category focus
-        task_desc = (
-            f"The goal is '{expected_answer}'. User said '{user_input}'. "
-            "Give a very subtle pedagogical hint in English (max 10 words). "
-            "Focus on the gender category or word type. NEVER mention specific letters."
-        )
-    elif attempt_number == 2:
-        # Level 2: Strong structural focus (First letters)
-        start_hint = expected_answer[:2] if len(expected_answer) > 2 else expected_answer[0]
-        task_desc = (
-            f"The goal is '{expected_answer}'. User failed twice. User said '{user_input}'.{history_context} "
-            f"Give a strong structural hint in English. Mention that the word starts with '{start_hint}' "
-            "or point out exactly which part is misspelled."
-        )
-    else:
-        # Level 3: Final Personalized Analysis
-        task_desc = (
-            f"The learner failed 3 times to get '{expected_answer}'. Mistake history: {history_context} "
-            "Provide a personalized pedagogical summary in English (max 20 words). "
-            "Analyze WHY their attempts were wrong (e.g., 'You seem to be confusing masculine and feminine articles'). "
-            "Provide one clear tip for them to remember this next time."
-        )
+        performance_summary.append(f"- {german}: {status}")
 
-    system_instruction = (
-        f"You are a professional AI German Tutor for {difficulty} level. "
-        f"TASK: {task_desc} "
-        f"CRITICAL: The entire response must be in English. Do not use German in the explanation. "
-        f"Keep the response to exactly ONE short sentence."
-    )
+    performance_str = "\n".join(performance_summary)
+    
+    # 3. Prepare Prompt Data
+    # We pass the full metadata so LLM can use it (images, sentences)
+    words_metadata = []
+    for w in words:
+        words_metadata.append({
+            "german": w.get('german_word'),
+            "english": w.get('english_gloss'),
+            "article": w.get('article'),
+            "plural": w.get('plural'),
+            "sentence": w.get('example_de'),
+            "image_id": w.get('image_id')
+        })
 
+    # 4. Construct the Prompt
+    prompt = f"""
+    You are an expert Adaptive German Tutor. Design a specific learning sequence (JSON) for a student based on their Pre-Test results.
+
+    ### INPUT DATA
+    TARGET WORDS: {json.dumps(words_metadata)}
+    
+    USER PRE-TEST PERFORMANCE:
+    {performance_str}
+
+    ### INSTRUCTIONS
+    Generate a JSON array of "LearningScreen" objects. The path should adapt based on errors.
+    
+    **Principles:**
+    1. **For Correct Words:** Provide a QUICK review (only 1 screen per word: 'word_card'). Do NOT add exercises.
+    2. **For Incorrect Words:** Provide a DEEP review (3 screens per word):
+       - Screen A: 'word_card' WITH A MNEMONIC in the 'mnemonics' field.
+         * If the error was gender (e.g. wrong article), the mnemonic MUST use colors/imagery (Blue=Der, Red=Die, Green=Das).
+         * Example: "Imagine the Table (Tisch) is made of BLUE ice (Der)."
+       - Screen B: 'challenge' (fill_gap) to practice spelling.
+       - Screen C: 'challenge' (choice) to practice the article.
+    3. **The Connector:** After individual words, add a 'story' screen. Create a short, funny German text (2-3 sentences) that combines the words the user got WRONG.
+    4. **Intro/Outro:** Add a brief 'intro' and 'intro' (as ready screen) at the end.
+
+    ### JSON STRUCTURE (Strict)
+    Return ONLY a raw JSON array. Each object must have:
+    - "title": (string)
+    - "content": (string, instructions)
+    - "visual_type": "intro" | "word_card" | "story" | "challenge"
+    - "interaction_type": "read_only" | "fill_gap" | "choice"
+    - "german_word": (string, required for challenges/cards)
+    - "article": (string, required for cards)
+    - "plural": (string, required for cards)
+    - "image_url": (string, format: "/images/IMAGE_ID.jpg" - use the provided image_ids!)
+    - "example_sentence": (string)
+    - "mnemonics": (string, optional, for adaptive hints)
+    - "question_context": (string, for challenges. For fill_gap, use '_______' as placeholder)
+    - "options": (array of strings, only for 'choice' interaction)
+
+    DO NOT wrap in markdown code blocks. Just valid JSON.
+    """
+
+    # 5. Call Gemini
     try:
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=[types.Content(role="user", parts=[types.Part(text=user_input)])],
+                model='gemini-2.0-flash', 
                 config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
                     response_mime_type="application/json",
-                    response_schema=types.Schema(
-                        type=types.Type.OBJECT,
-                        properties={"tip": types.Schema(type=types.Type.STRING)},
-                        required=["tip"]
-                    )
-                )
+                    temperature=0.4  # Lower temp for more structured output
+                ),
+                contents=[prompt]
             )
         )
-        return json.loads(response.text.strip())
-    except Exception:
-        return {"tip": "Review the patterns in your spelling and article gender choices."}
-
-# --- Standard Task Generators ---
-
-async def generate_vocab_task(user_id: str, num_items: int, topic: str) -> List[Dict]:
-    """Calls the Gemini API to get structured vocabulary."""
-    if not CLIENT_INITIALIZED:
-        raise ConnectionError("Gemini API Client failed to initialize.")
         
-    user_prompt = f"Choose {topic}-related words for A2 level."
-    loop = asyncio.get_event_loop()
-    
-    try:
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.models.generate_content(
-                model='gemini-2.5-flash', 
-                contents=[types.Content(role="user", parts=[types.Part(text=user_prompt)])],
-                config=types.GenerateContentConfig(
-                    system_instruction=f"Select exactly {num_items} German vocabulary words and translations. Return as JSON array.", 
-                    response_mime_type="application/json",
-                    response_schema=types.Schema(
-                        type=types.Type.ARRAY,
-                        items=types.Schema(
-                            type=types.Type.OBJECT,
-                            properties={"german": types.Schema(type=types.Type.STRING), "english": types.Schema(type=types.Type.STRING)},
-                            required=["german", "english"]
-                        )
-                    )
-                )
-            )
-        )
-        return json.loads(response.text.strip())
+        # 6. Parse and Post-process
+        raw_text = response.text.strip()
+        # Remove potential markdown formatting if Gemini adds it despite instructions
+        if raw_text.startswith("```json"): raw_text = raw_text[7:]
+        if raw_text.endswith("```"): raw_text = raw_text[:-3]
+        
+        generated_path = json.loads(raw_text)
+        
+        # Add step numbers
+        for i, screen in enumerate(generated_path):
+            screen['step_number'] = i + 1
+            
+        return generated_path
+
     except Exception as e:
-        raise Exception(f"LLM Task Failure: {str(e)}")
+        logger.error(f"LLM Generation Failed: {e}")
+        # Fallback to static path if LLM crashes
+        return generate_static_learning_path_A(words)
+
+# --- HELPER (Legacy) ---
+async def real_time_correction(user_input, expected, attempt, level, history):
+    return {"tip": "Check your article and spelling."}

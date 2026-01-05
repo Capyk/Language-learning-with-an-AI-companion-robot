@@ -1,51 +1,57 @@
 from enum import Enum
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
-# --- A. ENUMS (Fixed Choices) ---
-
+# --- ENUMS (Bez zmian) ---
 class TaskType(str, Enum):
-    """Defines the available learning tasks (Image/Conversation/Drill)."""
     IMAGE_LABELING = "image_labeling"
     CONVERSATIONAL = "conversational_roleplay"
     GRAMMAR_DRILL = "grammar_drill"
     SENTENCE_REWRITE = "sentence_rewrite"
-    VOCABULARY_GENERATION = "vocabulary_generation" # <-- New Task Type for your friend's app logic
+    VOCABULARY_GENERATION = "vocabulary_generation"
     GEC_CHALLENGE = "gec_challenge"
+    LEARNING_STEP = "learning_step"
 
-# --- B. REQUEST SCHEMA (What the Robot Sends) ---
-
+# --- EXISTING SCHEMAS (Bez zmian) ---
 class TaskRequest(BaseModel):
-    """Schema for requesting a new learning task."""
     user_id: str
     task_type: TaskType
-    # Generalized parameters for adaptive learning:
-    difficulty_level: str = "A1" # Used to retrieve vocabulary sets (e.g., from a DB)
-    num_items: int = 5          # Used for quantity in IMAGE_LABELING or VOCAB_GEN
-    topic: str = "general"      # Used to guide the LLM (e.g., 'food', 'travel')
+    difficulty_level: str = "A1"
+    num_items: int = 5
+    topic: str = "general"
 
 class SessionInit(BaseModel):
     user_id: str
-    condition: str  # "A" (Static) or "B" (Adaptive)
+    condition: str
 
 class AnswerSubmit(BaseModel):
     session_id: str
     user_answer: str
     start_time: float
-    history: Optional[List[str]] = [] # Track previous failed attempts for this item
+    history: Optional[List[str]] = []
 
 class SkipPhaseRequest(BaseModel):
     session_id: str
-    phase: str # 'pre-test', 'learning', 'post-test'
+    phase: str 
 
-# --- C. TASK ITEM SCHEMA (The Core LLM Output) ---
+class LearningScreen(BaseModel):
+    step_number: int
+    title: str
+    content: str
+    visual_type: str
+    german_word: Optional[str] = None
+    article: Optional[str] = None 
+    plural: Optional[str] = None
+    image_url: Optional[str] = None
+    example_sentence: Optional[str] = None
+    mnemonics: Optional[str] = None
+    interaction_type: Optional[str] = "read_only"
+    question_context: Optional[str] = None
+    options: Optional[List[str]] = None
 
 class VocabItem(BaseModel):
-    """Defines the structure for a single generated vocabulary word."""
     german: str
     english: str
-    # Add a field for the LLM's confidence or source PDF page if needed later
-    # source_confidence: float = 1.0 
 
 class ImageVocabItem(BaseModel):
     image_id: str
@@ -55,13 +61,10 @@ class ImageVocabItem(BaseModel):
     article: Optional[str] = None
     plural: Optional[str] = None
 
-# --- D. RESPONSE SCHEMA (What the Backend Sends Back) ---
-
-class TaskResponse(BaseModel):
-    """The structure of the final payload sent to the robot to start the task."""
+# --- NEW SCHEMA: DEMOGRAPHICS ---
+class DemographicData(BaseModel):
     session_id: str
-    task_type: TaskType
-    
-    # Placeholder for the actual task content (list of words, scenario text, etc.)
-    # The 'payload' field will contain the list of VocabItems for the VOCAB_GEN task.
-    payload: Dict
+    age: Optional[int] = None
+    gender: str
+    education: str
+    german_level: str

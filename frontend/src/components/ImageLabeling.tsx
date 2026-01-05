@@ -1,68 +1,250 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// --- Icons (Inline SVG Components) ---
+// --- ICONS ---
 const Icon = {
-  Send: ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-  ),
-  CheckCircle: ({ size = 24, className = "" }) => (
+  CheckCircle: ({ size = 24, className = "" }: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
   ),
-  XCircle: ({ size = 24, className = "" }) => (
+  XCircle: ({ size = 24, className = "" }: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
   ),
-  ArrowRight: ({ size = 24, className = "" }) => (
+  ArrowRight: ({ size = 24, className = "" }: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
   ),
-  BookOpen: ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+  Lightbulb: ({ size = 24, className = "" }: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 14c.2-.8.8-1.5 1.7-2"/><circle cx="12" cy="12" r="10"/></svg>
   ),
-  GraduationCap: ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-  ),
-  PlayCircle: ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-  ),
-  FastForward: ({ size = 24, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m13 19 9-7-9-7v14z"/><path d="m2 19 9-7-9-7v14z"/></svg>
-  ),
-  Info: ({ size = 24, className = "" }) => (
+  Info: ({ size = 24, className = "" }: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
   )
 };
 
-// --- Interfaces ---
+// --- LEARNING SCREEN RENDERER ---
+const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => void }) => {
+  const [localInput, setLocalInput] = useState("");
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  
+  const [status, setStatus] = useState<'idle' | 'checked'>('idle');
+  const [isCorrect, setIsCorrect] = useState(false);
 
-interface TrialData {
-  phase: 'pre-test' | 'learning' | 'post-test';
-  index: number;
-  total_in_phase: number;
-  task_type: 'article_mcq' | 'plural_mcq' | 'type_word';
-  image_url: string;
-  english_gloss: string;
-  options?: string[];
-  german_word?: string;
-  status?: string;
-}
+  useEffect(() => {
+    setLocalInput("");
+    setSelectedOption(null);
+    setStatus('idle');
+    setIsCorrect(false);
+  }, [data.step_number]);
 
-interface SessionData {
-  session_id: string;
-  condition: 'A' | 'B';
-}
+  const getArticleColor = (art: string) => {
+    if (!art) return 'text-slate-800 bg-slate-50';
+    const lower = art.toLowerCase();
+    if (lower === 'der') return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (lower === 'die') return 'text-red-600 bg-red-50 border-red-200';
+    if (lower === 'das') return 'text-green-600 bg-green-50 border-green-200';
+    return 'text-slate-800 bg-slate-50';
+  };
 
+  const handleCheck = () => {
+      let correct = false;
+      // Case sensitive check for spelling
+      if (data.interaction_type === 'fill_gap') {
+          correct = localInput.trim() === data.german_word.trim();
+      } else if (data.interaction_type === 'choice') {
+          correct = selectedOption?.toLowerCase() === data.german_word.toLowerCase();
+      }
+      setIsCorrect(correct);
+      setStatus('checked');
+  };
+
+  const renderContextWithGap = () => {
+    if (!data.question_context) return null;
+    const parts = data.question_context.split('_______');
+    if (parts.length < 2) return <p className="text-xl font-bold text-slate-800">{data.question_context}</p>;
+
+    return (
+        <div className="flex flex-wrap items-center gap-2 text-xl font-mono bg-white p-4 rounded-xl shadow-sm leading-loose w-full border border-slate-200 justify-center">
+            <span className="text-slate-700">{parts[0]}</span>
+            <div className="relative inline-block min-w-[140px]">
+                <input 
+                    type="text" 
+                    value={localInput}
+                    onChange={(e) => setLocalInput(e.target.value)}
+                    className={`w-full p-2 text-center font-bold border-b-4 outline-none bg-transparent transition-colors text-slate-900 ${
+                         status === 'checked'
+                         ? (isCorrect ? 'border-green-500 text-green-700' : 'border-red-500 text-red-700')
+                         : 'border-indigo-300 focus:border-indigo-600'
+                    }`}
+                    disabled={status === 'checked'}
+                    autoFocus
+                    placeholder="..."
+                />
+            </div>
+            <span className="text-slate-700">{parts[1]}</span>
+        </div>
+    );
+  };
+
+  const isSplitLayout = !!data.image_url;
+
+  return (
+    <div className="w-full max-w-7xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-white mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 flex flex-col min-h-[600px]">
+      
+      {/* Top Bar */}
+      <div className="bg-indigo-50 p-6 flex justify-between items-center border-b border-indigo-100 shrink-0">
+        <span className="bg-white text-indigo-700 px-4 py-2 rounded-full text-sm font-black uppercase tracking-widest shadow-sm">
+          Step {data.step_number}
+        </span>
+        {data.mnemonics && (
+          <span className="flex items-center gap-2 text-amber-600 bg-amber-100 px-4 py-2 rounded-full text-xs font-black uppercase border border-amber-200">
+            <Icon.Lightbulb size={16} /> AI Tip
+          </span>
+        )}
+      </div>
+
+      <div className={`flex-1 ${isSplitLayout ? 'grid grid-cols-2' : 'flex flex-col'}`}>
+          {isSplitLayout ? (
+              <div className="bg-slate-100 flex items-center justify-center p-10 border-r border-slate-200 h-full">
+                  <img 
+                      src={data.image_url} 
+                      alt="visual" 
+                      className="max-h-[450px] w-full object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
+                  />
+              </div>
+          ) : null}
+
+          <div className={`flex flex-col justify-center p-12 ${isSplitLayout ? '' : 'max-w-4xl mx-auto w-full items-center text-center'}`}>
+              <div className="mb-8 w-full">
+                  <h1 className="text-4xl font-black text-slate-800 mb-4 leading-tight">{data.title}</h1>
+                  <p className="text-xl text-slate-500 font-medium">{data.content}</p>
+              </div>
+
+              <div className="w-full space-y-8">
+                  {data.visual_type === 'word_card' && (
+                    <div className={`p-8 rounded-[2rem] border-4 text-center transition-colors duration-500 w-full ${getArticleColor(data.article || '')}`}>
+                      <div className="text-sm font-black uppercase opacity-60 mb-2 tracking-widest">German Word</div>
+                      <div className="text-6xl font-black mb-2 tracking-tight break-words">
+                        <span className="opacity-60 mr-4 text-4xl align-middle">{data.article}</span>
+                        {data.german_word}
+                      </div>
+                      {data.plural && (
+                         <div className="text-xl font-bold text-slate-600 mb-4 bg-white/50 inline-block px-4 py-1 rounded-lg">Plural: {data.plural}</div>
+                      )}
+                      <div className="text-2xl italic opacity-90 font-serif border-t border-black/10 pt-4 mt-2">"{data.example_sentence}"</div>
+                    </div>
+                  )}
+
+                  {data.mnemonics && (
+                    <div className="bg-amber-50 border-l-8 border-amber-400 p-6 rounded-r-2xl shadow-sm text-left w-full">
+                      <p className="text-amber-800 font-bold text-lg leading-relaxed italic">
+                        💡 {data.mnemonics}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* NOTE: Intro/Story/Summary logic */}
+                  {(data.visual_type === 'story' || data.visual_type === 'intro' || data.visual_type === 'summary') && (
+                    <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 font-serif text-2xl text-slate-700 leading-loose w-full">
+                      {data.example_sentence || data.content}
+                    </div>
+                  )}
+
+                  {data.interaction_type === 'fill_gap' && (
+                      <div className="bg-indigo-50 p-8 rounded-[2rem] border-2 border-indigo-100 w-full">
+                          {/* Only render context here, do NOT render extra text above */}
+                          {renderContextWithGap()}
+                          {!status || status === 'idle' ? (
+                              <div className="flex gap-3 justify-center flex-wrap mt-6">
+                                  {['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(c => (
+                                      <button 
+                                          key={c} 
+                                          onClick={() => setLocalInput(prev => prev + c)} 
+                                          className="w-12 h-12 bg-white border-2 border-indigo-200 rounded-xl font-black text-xl text-indigo-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-md active:scale-95"
+                                      >
+                                          {c}
+                                      </button>
+                                  ))}
+                              </div>
+                          ) : null}
+                      </div>
+                  )}
+
+                  {data.interaction_type === 'choice' && data.options && (
+                      <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 w-full">
+                           <p className="text-3xl font-bold text-slate-700 mb-8 text-center">{data.question_context}</p>
+                           <div className="flex justify-center gap-4">
+                              {data.options.map((opt: string) => (
+                                  <button
+                                      key={opt}
+                                      onClick={() => setSelectedOption(opt)}
+                                      disabled={status === 'checked'}
+                                      className={`px-8 py-5 rounded-2xl font-black text-2xl border-4 transition-all uppercase flex-1 ${
+                                          selectedOption === opt 
+                                          ? 'bg-indigo-600 text-white border-indigo-700 scale-105 shadow-xl' 
+                                          : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50'
+                                      } ${status === 'checked' && opt.toLowerCase() === data.german_word.toLowerCase() ? '!bg-green-500 !border-green-600 !text-white' : ''} 
+                                        ${status === 'checked' && selectedOption === opt && !isCorrect ? '!bg-red-500 !border-red-600 !text-white' : ''}
+                                      `}
+                                  >
+                                      {opt}
+                                  </button>
+                              ))}
+                           </div>
+                      </div>
+                  )}
+
+                  {status === 'checked' && (
+                      <div className={`p-6 rounded-2xl text-center font-bold text-xl animate-in fade-in zoom-in duration-300 w-full ${isCorrect ? 'bg-green-100 text-green-700 border-2 border-green-200' : 'bg-red-100 text-red-700 border-2 border-red-200'}`}>
+                          {isCorrect ? (
+                              <div className="flex items-center justify-center gap-3">
+                                  <Icon.CheckCircle size={32} /> Correct! Well done.
+                              </div>
+                          ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                  <div className="flex items-center gap-2"><Icon.XCircle size={32} /> Incorrect.</div>
+                                  <div className="text-slate-800 font-normal text-lg">
+                                       The correct answer is: <span className="font-black bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">{data.german_word}</span>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  )}
+
+                  <button 
+                    onClick={() => {
+                        if (data.interaction_type !== 'read_only' && status === 'idle') {
+                            handleCheck();
+                        } else {
+                            onNext();
+                        }
+                    }}
+                    className={`w-full py-6 rounded-[1.5rem] font-black text-2xl transition-all flex items-center justify-center gap-4 shadow-xl active:scale-[0.98] group mt-6 ${
+                        status === 'idle' && data.interaction_type !== 'read_only'
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        : 'bg-slate-800 text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    {status === 'idle' && data.interaction_type !== 'read_only' ? 'CHECK ANSWER' : 'CONTINUE'} 
+                    <Icon.ArrowRight size={32} className="group-hover:translate-x-2 transition-transform"/>
+                  </button>
+
+              </div>
+          </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 const ImageLabeling: React.FC = () => {
-  const [session, setSession] = useState<SessionData | null>(null);
-  const [currentTrial, setCurrentTrial] = useState<TrialData | null>(null);
-  const [userInput, setUserInput] = useState<string>('');
+  const [session, setSession] = useState<any>(null);
+  const [currentTrial, setCurrentTrial] = useState<any>(null);
+  const [userInput, setUserInput] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<any>(null);
-  const [startTime, setStartTime] = useState<number>(0);
-  const [isComplete, setIsComplete] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showTransition, setShowTransition] = useState<boolean>(false);
-  const [nextPhaseName, setNextPhaseName] = useState<string>('');
-  const [localAttempt, setLocalAttempt] = useState<number>(1);
+
+  const [localAttempt, setLocalAttempt] = useState(1);
   const [mistakeHistory, setMistakeHistory] = useState<string[]>([]);
 
   useEffect(() => {
@@ -76,6 +258,7 @@ const ImageLabeling: React.FC = () => {
 
   const startExperiment = async (condition: 'A' | 'B') => {
     setIsLoading(true);
+    setError(null);
     try {
       const resp = await fetch('/experiment/init', {
         method: 'POST',
@@ -85,7 +268,7 @@ const ImageLabeling: React.FC = () => {
       const data = await resp.json();
       setSession(data);
       fetchNextTrial(data.session_id);
-    } catch { setError("Connection error."); }
+    } catch { setError("Connection failed. Check backend."); }
     finally { setIsLoading(false); }
   };
 
@@ -96,69 +279,86 @@ const ImageLabeling: React.FC = () => {
     setSelectedArticle(null);
     setLocalAttempt(1);
     setMistakeHistory([]);
+    
     try {
       const resp = await fetch(`/experiment/trial/${sessionId}`);
       const data = await resp.json();
-      if (data.status === "completed") setIsComplete(true);
-      else if (currentTrial && currentTrial.phase !== data.phase) {
-        setNextPhaseName(data.phase);
-        setShowTransition(true);
-        setCurrentTrial(data);
+      
+      if (data.status === "completed") {
+        setIsComplete(true);
+      } else if (data.status === "transition") {
+        fetchNextTrial(sessionId);
       } else {
         setCurrentTrial(data);
-        setStartTime(Date.now() / 1000);
       }
-    } finally { setIsLoading(false); }
-  }, [currentTrial]);
-
-  const skipToPhase = async (phase: string) => {
-    if (!session) return;
-    setIsLoading(true);
-    try {
-      await fetch('/experiment/skip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: session.session_id, phase }),
-      });
-      fetchNextTrial(session.session_id);
-    } catch { setError("Skip failed."); }
+    } catch { setError("Failed to load task."); }
     finally { setIsLoading(false); }
-  };
+  }, []);
 
   const submitAnswer = async (answer?: string) => {
+    if (answer === 'next_step') {
+        setIsLoading(true);
+        try {
+            const resp = await fetch('/experiment/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: session.session_id, user_answer: "NEXT", start_time: 0 }),
+            });
+            const data = await resp.json();
+            if (data.move_next) fetchNextTrial(session.session_id);
+        } catch { setError("Nav error"); }
+        finally { setIsLoading(false); }
+        return;
+    }
+
     let finalAnswer = answer || userInput;
+    
     if (currentTrial?.task_type === 'type_word' && !answer) {
         if (!selectedArticle) { setError("Please select an article."); return; }
         if (!userInput.trim()) return;
-        
-        // Capitalization validation for Learning Condition B
-        if (currentTrial?.phase === 'learning' && session?.condition === 'B' && userInput.trim()[0] !== userInput.trim()[0].toUpperCase()) {
-            setFeedback({ is_correct: false, feedback: "Grammar Hint: In German, all nouns must be capitalized!", move_next: false });
-            return;
-        }
         finalAnswer = `${selectedArticle} ${userInput.trim()}`;
     }
 
     setIsLoading(true);
     setError(null);
+    
     try {
       const resp = await fetch('/experiment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          session_id: session?.session_id, 
+          session_id: session.session_id, 
           user_answer: finalAnswer, 
-          start_time: startTime, 
-          history: mistakeHistory 
+          start_time: 0,
+          history: mistakeHistory
         }),
       });
       const data = await resp.json();
       setFeedback(data);
-      if (!data.move_next) {
+      
+      if (data.transition) {
+          setTimeout(() => fetchNextTrial(session.session_id), 1500);
+      } 
+      else if (!data.is_correct && !data.move_next) {
           setLocalAttempt(prev => prev + 1);
           setMistakeHistory(prev => [...prev, finalAnswer]);
       }
-    } finally { setIsLoading(false); }
+    } catch { setError("Submission error."); }
+    finally { setIsLoading(false); }
+  };
+
+  const skipToPhase = async (phase: string) => {
+    if (!session) return;
+    setIsLoading(true);
+    try {
+        await fetch('/experiment/skip', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({session_id: session.session_id, phase})
+        });
+        fetchNextTrial(session.session_id);
+    } catch { setError("Skip failed"); }
+    finally { setIsLoading(false); }
   };
 
   const formatPhase = (p: string) => {
@@ -166,149 +366,152 @@ const ImageLabeling: React.FC = () => {
         case 'learning': return 'Learning Phase';
         case 'pre-test': return 'Pre-Test';
         case 'post-test': return 'Post-Test';
-        default: return p.charAt(0).toUpperCase() + p.slice(1);
+        default: return p ? p.charAt(0).toUpperCase() + p.slice(1) : '';
     }
   };
 
   if (isComplete) return (
     <div className="w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl text-center p-12 border-8 border-white">
       <Icon.CheckCircle size={64} className="text-green-500 mx-auto mb-6" />
-      <h1 className="text-4xl font-black text-slate-700 mb-8 tracking-tight">Experiment Finished!</h1>
-      <button onClick={() => window.location.reload()} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all">Restart</button>
-    </div>
-  );
-
-  if (showTransition) return (
-    <div className="w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl text-center p-12 border-8 border-white">
-      {nextPhaseName === 'learning' ? <Icon.BookOpen size={64} className="text-blue-500 mx-auto mb-6" /> : <Icon.GraduationCap size={64} className="text-purple-600 mx-auto mb-6" />}
-      <h2 className="text-3xl font-black text-slate-700 mb-8 capitalize">Starting {formatPhase(nextPhaseName)}</h2>
-      <button onClick={() => { setShowTransition(false); setStartTime(Date.now() / 1000); }} className="px-10 py-4 bg-slate-800 text-white rounded-2xl font-bold shadow-xl flex items-center gap-2 mx-auto hover:bg-slate-700 transition-all">Start <Icon.FastForward size={20} /></button>
+      <h1 className="text-4xl font-black text-slate-700 mb-8 tracking-tight">All Tasks Finished!</h1>
+      <button onClick={() => window.location.reload()} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95">Restart</button>
     </div>
   );
 
   if (!session) return (
     <div className="w-full max-w-3xl text-center">
-      <h1 className="text-5xl font-black mb-12 text-slate-800 tracking-tight">Vocabulary Study</h1>
+      <h1 className="text-5xl font-black mb-12 text-slate-800 tracking-tight">Vocabulary AI Study</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4">
         {['A', 'B'].map(cond => (
-          <button key={cond} onClick={() => startExperiment(cond as any)} className="p-10 bg-white border-4 border-transparent hover:border-blue-400 rounded-[3rem] shadow-xl text-left flex items-start gap-6 group transition-all h-full">
-            <div className={`p-5 rounded-3xl transition-colors ${cond === 'A' ? 'bg-blue-50 text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-purple-50 text-purple-400 group-hover:bg-purple-600 group-hover:text-white'}`}>{cond === 'A' ? <Icon.XCircle size={40} /> : <Icon.CheckCircle size={40} />}</div>
-            <div><h2 className="text-2xl font-bold text-slate-700 mb-1">Group {cond}</h2><p className="text-slate-500">{cond === 'A' ? 'Static' : 'Adaptive AI'} Feedback</p></div>
+          <button key={cond} onClick={() => startExperiment(cond as any)} className="p-10 bg-white border-4 border-transparent hover:border-blue-400 rounded-[3rem] shadow-xl text-left flex items-start gap-6 group transition-all">
+            <div className={`p-5 rounded-3xl transition-colors ${cond === 'A' ? 'bg-blue-50 text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-purple-50 text-purple-400 group-hover:bg-purple-600 group-hover:text-white'}`}>
+                {cond === 'A' ? <Icon.XCircle size={40} /> : <Icon.CheckCircle size={40} />}
+            </div>
+            <div>
+                <h2 className="text-2xl font-bold text-slate-700">Group {cond}</h2>
+                <p className="text-slate-500">{cond === 'A' ? 'Static Learning' : 'Adaptive AI Learning'}</p>
+            </div>
           </button>
         ))}
       </div>
+      {error && <div className="mt-8 text-red-500 font-bold bg-red-100 p-4 rounded-xl">{error}</div>}
     </div>
   );
 
+  if (currentTrial?.task_type === 'learning_step') {
+      return (
+        <div className="w-full flex justify-center py-8 px-4">
+          <LearningScreenRenderer 
+            data={currentTrial.payload} 
+            onNext={() => submitAnswer('next_step')} 
+          />
+        </div>
+      );
+  }
+
+  // --- RENDER FOR PRE/POST TEST (UPDATED) ---
   return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-4xl px-4 py-8">
-      <div className="w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border-8 border-white relative">
+    <div className="flex flex-col items-center gap-6 w-full max-w-7xl px-4 py-8">
+      <div className="w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-white relative min-h-[600px] flex flex-col">
+        
         {/* Header */}
-        <div className="bg-slate-900 p-4 text-white flex justify-between items-center px-8">
-          <div className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]"></div><span className="uppercase tracking-widest text-[10px] font-black opacity-80">{formatPhase(currentTrial?.phase || '')}</span></div>
+        <div className="bg-slate-900 p-4 text-white flex justify-between items-center px-8 shrink-0">
+          <div className="flex items-center gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]"></div>
+              <span className="uppercase tracking-widest text-[10px] font-black opacity-80">{formatPhase(currentTrial?.phase)}</span>
+          </div>
           <div className="flex items-center gap-4">
-              {currentTrial?.phase === 'learning' && session.condition === 'B' && localAttempt > 1 && !feedback?.move_next && <div className="bg-orange-400 text-white text-[9px] font-black px-3 py-1 rounded-full animate-pulse uppercase tracking-widest">Attempt {localAttempt}/3</div>}
-              <span className="text-[10px] font-mono opacity-60 uppercase tracking-widest">Item {currentTrial ? currentTrial.index + 1 : 0} of {currentTrial?.total_in_phase}</span>
+              <span className="text-[10px] font-mono opacity-60">Item {currentTrial ? currentTrial.index + 1 : 0} of {currentTrial?.total_in_phase}</span>
           </div>
         </div>
 
-        <div className="p-8 flex flex-col gap-6 flex-1">
-          {/* Side-by-Side Main Content */}
-          <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-              {/* Left: Image */}
-              <div className="flex-1 min-h-[300px] bg-slate-50 rounded-[1.5rem] relative flex items-center justify-center border-2 border-slate-100 group overflow-hidden">
-                  <img src={currentTrial?.image_url} alt="Vocab" className="max-w-[80%] max-h-[80%] object-contain transition-transform group-hover:scale-105 duration-500" onError={(e:any)=>e.target.src="https://via.placeholder.com/200?text=Missing+Image"} />
-                  {isLoading && !feedback && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 font-bold text-blue-500">Loading...</div>}
-              </div>
-
-              {/* Right: Question and Interaction */}
-              <div className="flex-1 flex flex-col justify-center gap-5">
-                  <div className="space-y-1 text-center lg:text-left">
-                    <h2 className="text-2xl font-black text-slate-700 leading-tight">{currentTrial?.task_type === 'article_mcq' ? 'Welcher Artikel passt?' : currentTrial?.task_type === 'plural_mcq' ? 'Wie lautet die Pluralform?' : 'Wie heißt das auf Deutsch?'}</h2>
-                    <p className="text-xl text-slate-400 italic font-medium">"{currentTrial?.english_gloss}"</p>
-                    {currentTrial?.german_word && <p className="mt-3 text-4xl font-black text-blue-600 tracking-tight">{currentTrial.german_word}</p>}
-                  </div>
-
-                  <div className="w-full mt-2">
-                      {currentTrial?.task_type !== 'type_word' ? (
-                          <div className="grid grid-cols-1 gap-2.5">
-                            {currentTrial?.options?.map((opt:string) => (
-                              <button key={opt} onClick={() => submitAnswer(opt)} disabled={isLoading || feedback?.move_next} className={`py-4 px-6 border-2 rounded-xl font-bold text-lg shadow-sm transition-all active:scale-95 text-left flex justify-between items-center ${feedback?.move_next ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-600 hover:text-white hover:border-blue-600'}`}>
-                                {opt}
-                                {!feedback?.move_next && <Icon.ArrowRight size={18} className="opacity-0 group-hover:opacity-100" />}
-                              </button>
-                            ))}
-                          </div>
-                      ) : (
-                          <div className="flex flex-col gap-3">
-                              {/* Article Buttons */}
-                              <div className="flex gap-2.5 justify-center">
-                                {['der', 'die', 'das'].map(art => (
-                                  <button key={art} onClick={() => { setSelectedArticle(art); setError(null); }} disabled={feedback?.move_next} className={`flex-1 py-3.5 rounded-xl font-black text-[9px] uppercase tracking-[0.15em] transition-all border-2 ${selectedArticle === art ? 'bg-blue-600 text-white border-blue-700 shadow-lg' : 'bg-white text-slate-600 border-slate-400 hover:border-slate-500 shadow-sm'} ${feedback?.move_next ? 'opacity-50 cursor-not-allowed' : ''}`}>{art}</button>
-                                ))}
-                              </div>
-                              {/* Input and Send */}
-                              <div className="flex gap-2">
-                                <input autoFocus type="text" value={userInput} onChange={(e) => { setUserInput(e.target.value); setError(null); }} onKeyPress={(e) => e.key === 'Enter' && submitAnswer()} disabled={isLoading || feedback?.move_next} className={`flex-1 p-4 border-2 rounded-xl outline-none text-xl font-bold shadow-inner transition-colors ${feedback?.move_next ? 'bg-slate-50 border-slate-100 text-slate-300' : 'bg-blue-50/50 border-slate-100 focus:border-blue-500 text-slate-700 placeholder-slate-300'}`} placeholder="Type noun..." />
-                                {!feedback?.move_next && <button onClick={() => submitAnswer()} disabled={isLoading || !userInput.trim() || !selectedArticle} className="px-8 py-2 bg-blue-600 text-white rounded-xl font-black text-lg active:scale-95 shadow-lg hover:bg-blue-700 transition-all disabled:bg-slate-100">SEND</button>}
-                              </div>
-                              {/* Char Picker */}
-                              <div className="flex gap-2 mt-1">
-                                {['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(c => (
-                                  <button key={c} onClick={()=>setUserInput(p=>p+c)} disabled={feedback?.move_next} className={`w-9 h-9 bg-slate-50 border border-slate-300 rounded font-bold text-slate-500 text-sm transition-all hover:bg-white hover:border-blue-400 shadow-sm ${feedback?.move_next ? 'opacity-50' : ''}`}>{c}</button>
-                                ))}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
+        {/* Content - GRID LAYOUT 50/50 */}
+        <div className="flex-1 grid grid-cols-2">
+          
+          {/* Left: Image */}
+          <div className="bg-slate-100 flex items-center justify-center p-10 border-r border-slate-200">
+              {currentTrial && <img src={currentTrial.image_url} alt="Task Image" className="max-h-[450px] w-full object-contain transition-transform group-hover:scale-105 duration-700" />}
+              {isLoading && !feedback && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 font-bold text-blue-500 backdrop-blur-sm">Loading...</div>}
           </div>
 
-          {/* Feedback & Navigation */}
-          {feedback && (
-              <div className="flex flex-col gap-5 pt-2 border-t border-slate-100 animate-in fade-in duration-500">
-                  <div className={`p-6 rounded-[1.5rem] border-4 shadow-md transition-all ${feedback.is_correct ? 'bg-green-50 border-green-100' : (currentTrial.phase !== 'learning' ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100')}`}>
-                      <div className="flex items-center gap-3 mb-3">
-                          <div className={`p-2 rounded-xl ${feedback.is_correct ? 'bg-green-100 text-green-600' : (currentTrial.phase !== 'learning' ? 'bg-red-100 text-red-600' : (feedback.move_next ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'))}`}>
-                            {feedback.is_correct ? <Icon.CheckCircle size={24} /> : (currentTrial.phase !== 'learning' ? <Icon.XCircle size={24} /> : (feedback.move_next ? <Icon.Info size={24} /> : <Icon.PlayCircle size={24} />))}
-                          </div>
-                          <p className="text-xl font-black text-slate-700 uppercase tracking-widest">{feedback.is_correct ? 'Correct!' : (currentTrial.phase !== 'learning' ? 'Wrong' : (feedback.move_next ? 'Correction Tip' : 'Hint'))}</p>
-                      </div>
-                      <div className="space-y-4">
-                          {currentTrial.phase !== 'learning' && !feedback.is_correct ? (
-                            <p className="text-slate-700 text-xl font-medium leading-relaxed">The correct answer is: <span className="underline font-black text-red-700">{feedback.feedback}</span></p>
-                          ) : (
-                            <div className="space-y-4">
-                                {feedback.move_next && !feedback.is_correct && currentTrial.phase === 'learning' && session.condition === 'B' ? (
-                                    <div className="bg-white/40 p-4 rounded-2xl border-l-8 border-blue-500">
-                                        <p className="text-blue-700 font-bold text-lg uppercase tracking-tight mb-2">Personalized Correction Tip:</p>
-                                        <p className="text-slate-700 text-lg font-medium leading-relaxed italic">{feedback.feedback}</p>
-                                    </div>
-                                ) : (
-                                    <p className="text-slate-700 text-lg font-medium leading-relaxed">{feedback.feedback}</p>
-                                )}
-                            </div>
-                          )}
-                          {feedback.example && <div className="mt-4 p-4 bg-white/60 rounded-xl border-2 border-green-50 shadow-sm text-slate-500 italic font-semibold leading-relaxed">"{feedback.example}"</div>}
-                      </div>
-                  </div>
-                  {feedback.move_next && <button onClick={() => fetchNextTrial(session.session_id)} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-xl flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-[0.98] group">NEXT TASK <Icon.ArrowRight size={24} className="group-hover:translate-x-1.5 transition-transform" /></button>}
+          {/* Right: Inputs */}
+          <div className="flex flex-col justify-center p-12 bg-white">
+              <div className="space-y-2 mb-8 text-left">
+                <h2 className="text-4xl font-black text-slate-800 leading-tight">
+                    {currentTrial?.task_type === 'article_mcq' ? 'Which article fits?' : 
+                     currentTrial?.task_type === 'plural_mcq' ? 'Select the Plural Form:' : 
+                     'Type the German Word:'}
+                </h2>
+                <p className="text-2xl text-slate-500 italic font-medium">"{currentTrial?.english_gloss}"</p>
               </div>
-          )}
+
+              {!feedback?.move_next && (
+                <div className="w-full mt-2">
+                    {currentTrial?.task_type !== 'type_word' ? (
+                        <div className="grid grid-cols-1 gap-4">
+                          {currentTrial?.options?.map((opt: string) => (
+                            // FIXED: Added bg-white and text-slate-800 to ensure visibility against global styles
+                            <button key={opt} onClick={() => submitAnswer(opt)} className="py-6 px-8 border-2 border-slate-200 rounded-2xl font-black text-xl bg-white hover:bg-blue-50 text-slate-800 transition-all text-left flex justify-between items-center group shadow-sm hover:border-blue-400">
+                              {opt}
+                              <Icon.ArrowRight size={24} className="opacity-0 group-hover:opacity-100 transition-all text-blue-500" />
+                            </button>
+                          ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-6">
+                            <div className="flex gap-4">
+                              {['der', 'die', 'das'].map(art => (
+                                <button key={art} onClick={() => setSelectedArticle(art)} className={`flex-1 py-5 rounded-2xl font-black text-lg uppercase tracking-widest border-2 transition-all ${selectedArticle === art ? 'bg-blue-600 text-white border-blue-700 shadow-lg' : 'bg-white text-slate-600 border-slate-300 hover:border-blue-300 hover:bg-slate-50'}`}>{art}</button>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              {/* FIXED: Added bg-white and text-slate-900 to input */}
+                              <input autoFocus type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && submitAnswer()} className="flex-1 p-5 border-2 border-slate-300 rounded-2xl outline-none text-2xl font-bold shadow-inner focus:border-blue-500 transition-all text-slate-900 bg-white" placeholder="Type here..." />
+                              <button onClick={() => submitAnswer()} disabled={!userInput.trim() || !selectedArticle} className="px-10 py-2 bg-blue-600 text-white rounded-2xl font-black text-xl active:scale-95 shadow-lg hover:bg-blue-700 transition-all disabled:bg-slate-100 disabled:text-slate-400">SEND</button>
+                            </div>
+                            <div className="flex gap-3 flex-wrap">
+                                {['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(c => (
+                                    <button key={c} onClick={()=>setUserInput(p=>p+c)} className="w-12 h-12 bg-white border-2 border-slate-200 rounded-xl font-black text-xl text-slate-600 hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm active:scale-95">{c}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+              )}
+
+              {/* Feedback */}
+              {feedback && (
+                  <div className={`mt-6 p-8 rounded-2xl border-4 transition-all duration-500 ${feedback.is_correct ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} shadow-lg text-left`}>
+                      <div className="flex items-center gap-4 mb-4">
+                          <div className={`p-3 rounded-2xl ${feedback.is_correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                            {feedback.is_correct ? <Icon.CheckCircle size={32} /> : <Icon.XCircle size={32} />}
+                          </div>
+                          <p className="text-2xl font-black text-slate-700 uppercase tracking-widest">{feedback.is_correct ? 'Excellent!' : 'Incorrect'}</p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                          <p className="text-slate-700 text-2xl font-medium leading-relaxed">
+                             {feedback.is_correct ? feedback.feedback : <span>The correct answer is: <span className="underline font-black text-red-700">{feedback.feedback?.replace("Correct: ", "")}</span></span>}
+                          </p>
+                      </div>
+                      
+                      {feedback.move_next && <button onClick={() => fetchNextTrial(session.session_id)} className="w-full py-6 mt-6 bg-slate-900 text-white rounded-[2rem] font-black text-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group active:scale-[0.98] shadow-2xl">NEXT TASK <Icon.ArrowRight size={32} className="group-hover:translate-x-2 transition-transform" /></button>}
+                  </div>
+              )}
+          </div>
         </div>
       </div>
 
-      {/* Testing Toolbar */}
       <div className="w-full bg-slate-800 p-4 rounded-3xl flex flex-wrap items-center justify-center gap-4 border-4 border-slate-700 shadow-xl mt-4">
         <span className="text-slate-400 font-bold text-xs uppercase tracking-widest mr-2 flex items-center gap-2">
-          <Icon.Info size={14} className="text-blue-400" /> Testing Controls:
+          <Icon.Info size={14} className="text-blue-400" /> Testing Toolbar:
         </span>
-        <button onClick={() => skipToPhase('pre-test')} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-xl text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Pre-Test</button>
-        <button onClick={() => skipToPhase('learning')} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-xl text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Learning</button>
-        <button onClick={() => skipToPhase('post-test')} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-xl text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Post-Test</button>
+        <button onClick={() => skipToPhase('pre-test')} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-xl text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Skip to Pre-Test</button>
+        <button onClick={() => skipToPhase('learning')} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-xl text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Skip to Learning</button>
+        <button onClick={() => skipToPhase('post-test')} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-xl text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Skip to Post-Test</button>
       </div>
 
-      {error && <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-sm px-5 py-3 bg-red-600 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center gap-2 z-[100] animate-bounce"><Icon.Info size={16} /> {error}</div>}
+      {error && <div className="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm px-6 py-4 bg-red-600 text-white text-xs font-black rounded-full shadow-2xl flex items-center justify-center gap-2 z-[100] animate-bounce"><Icon.Info size={20} /> {error}</div>}
     </div>
   );
 };
