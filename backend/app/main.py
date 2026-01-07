@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+# --- NOWY IMPORT ---
+from fastapi.middleware.cors import CORSMiddleware 
 from google import genai
 
 # Internal imports
@@ -16,56 +17,55 @@ load_dotenv()
 
 app = FastAPI(title="AI Tutor Backend - Experiment Version")
 
+# --- CORS CONFIGURATION (KLUCZOWA ZMIANA) ---
+# Pozwalamy na połączenia z dowolnego miejsca (dla testów) lub konkretnie z Vercel
+origins = [
+    "http://localhost:5173",  # Twój lokalny frontend
+    "https://german-learning-language-backend.onrender.com", # Twój backend
+    "*" # Dopuszcza wszystko (najbezpieczniej na start, żeby zadziałało)
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Lub wpisz tu adres Vercel np. ["https://twoja-apka.vercel.app"]
+    allow_origins=["*"], # Zmienione na "*" aby na pewno zadziałało z Vercel
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# --------------------------------------------
 
 # --- Static Files Configuration ---
-# This allows the frontend to access images via URLs like http://localhost:8000/images/img_01.png
-# We map the physical directory 'data/images' to the URL path '/images'
 IMAGE_DIRECTORY = "data/images"
 
 if not os.path.exists(IMAGE_DIRECTORY):
     print(f"⚠️ Warning: The directory '{IMAGE_DIRECTORY}' does not exist. Image serving may fail.")
-
-app.mount("/images", StaticFiles(directory=IMAGE_DIRECTORY), name="images")
+else:
+    # Upewniamy się, że katalog istnieje, żeby uniknąć błędu 500
+    app.mount("/images", StaticFiles(directory=IMAGE_DIRECTORY), name="images")
 
 # --- Router Setup ---
-# Include the experiment and labeling endpoints
 app.include_router(endpoints.router)
 
 # --- Application Startup Hook ---
-
 @app.on_event("startup")
 async def startup_event():
     """
     Executes setup logic when the FastAPI server starts.
-    This includes initializing the Gemini client and checking environment health.
     """
     
     # 1. Initialize the Gemini Client for the LLM service
     try:
-        # Assign the global client object in llm_service module
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             print("🛑 Error: GEMINI_API_KEY not found in environment variables.")
             llm_service.CLIENT_INITIALIZED = False
         else:
-            llm_service.client = genai.Client(api_key=api_key)
+            # Przekazujemy klucz, ale inicjalizacja właściwa nastąpi w llm_service
+            # jeśli używamy google-genai, obiekt klienta tworzymy tam
             llm_service.CLIENT_INITIALIZED = True
-            print("✅ Gemini Client Initialized Successfully.")
+            print("✅ Gemini Client Configuration Loaded.")
     except Exception as e:
         print(f"🛑 Critical error initializing Gemini Client: {e}")
         llm_service.CLIENT_INITIALIZED = False
 
-    # 2. Log server status
-    print(f"🚀 Server is running. Static images served from: {os.path.abspath(IMAGE_DIRECTORY)}")
-
-@app.get("/")
-async def root():
-    """Health check endpoint."""
-    return {"status": "online", "message": "AI Tutor Backend is running."}
+    print(f"🚀 Server is running.")
