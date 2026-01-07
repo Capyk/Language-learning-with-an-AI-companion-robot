@@ -19,11 +19,71 @@ const Icon = {
   )
 };
 
+// --- HELPER: TEXT FORMATTER (Bold) ---
+const formatText = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index} className="font-black text-indigo-900">{part.slice(2, -2)}</strong>;
+        }
+        return <span key={index}>{part}</span>;
+    });
+};
+
+// --- DEMOGRAPHICS FORM ---
+const DemographicsForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
+    const [formData, setFormData] = useState({ age: '', gender: '', education: '', german_level: '' });
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSubmit(formData); };
+
+    return (
+        <div className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl p-10 border-8 border-white mx-auto animate-in fade-in zoom-in duration-500">
+            <div className="text-center mb-8">
+                <h1 className="text-3xl font-black text-slate-800 mb-2">Final Step</h1>
+                <p className="text-slate-500">Please provide basic info to save results.</p>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                    <label className="block text-slate-700 font-bold mb-2 ml-1">Age</label>
+                    <input type="number" required min="10" max="99" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} className="w-full p-4 rounded-xl border-2 border-slate-200 text-slate-800 font-bold outline-none focus:border-blue-500 bg-white" placeholder="e.g. 25" />
+                </div>
+                <div>
+                    <label className="block text-slate-700 font-bold mb-2 ml-1">Gender</label>
+                    <div className="grid grid-cols-2 gap-4">
+                        {['Male', 'Female', 'Other', 'Prefer not to say'].map(opt => (
+                            <button type="button" key={opt} onClick={() => setFormData({...formData, gender: opt})} className={`p-4 rounded-xl border-2 font-bold transition-all ${formData.gender === opt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>{opt}</button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-slate-700 font-bold mb-2 ml-1">Education</label>
+                    <select required value={formData.education} onChange={e => setFormData({...formData, education: e.target.value})} className="w-full p-4 rounded-xl border-2 border-slate-200 text-slate-800 font-bold outline-none focus:border-blue-500 bg-white appearance-none">
+                        <option value="" disabled>Select option...</option>
+                        <option value="High School">High School</option>
+                        <option value="Bachelor">Bachelor's</option>
+                        <option value="Master">Master's</option>
+                        <option value="PhD">PhD</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-slate-700 font-bold mb-2 ml-1">German Level</label>
+                    <div className="flex gap-2">
+                        {['A0', 'A1', 'A2', 'B1+'].map(lvl => (
+                            <button type="button" key={lvl} onClick={() => setFormData({...formData, german_level: lvl})} className={`flex-1 p-3 rounded-xl border-2 font-bold text-sm transition-all ${formData.german_level === lvl ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>{lvl}</button>
+                        ))}
+                    </div>
+                </div>
+                <button type="submit" disabled={!formData.age || !formData.gender || !formData.education || !formData.german_level} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black text-xl hover:bg-green-700 transition-all shadow-lg active:scale-95 disabled:bg-slate-300 mt-4">SUBMIT & FINISH</button>
+            </form>
+        </div>
+    );
+};
+
 // --- LEARNING SCREEN RENDERER ---
 const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => void }) => {
   const [localInput, setLocalInput] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  
   const [status, setStatus] = useState<'idle' | 'checked'>('idle');
   const [isCorrect, setIsCorrect] = useState(false);
 
@@ -45,24 +105,36 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
 
   const handleCheck = () => {
       let correct = false;
-      // Case sensitive check for spelling
+      const target = data.german_word ? data.german_word.trim().toLowerCase() : "";
+
       if (data.interaction_type === 'fill_gap') {
-          correct = localInput.trim() === data.german_word.trim();
+          // Walidacja pisowni: Sprawdzamy czy wpisane słowo to target, 
+          // LUB czy target kończy się tym słowem (np. Target="der Tisch", Input="Tisch")
+          const input = localInput.trim().toLowerCase();
+          correct = (input === target) || target.endsWith(" " + input);
       } else if (data.interaction_type === 'choice') {
-          correct = selectedOption?.toLowerCase() === data.german_word.toLowerCase();
+          // Walidacja rodzajnika:
+          // Jeśli cel to "der Tisch", a wybrano "der", to:
+          // "der Tisch".startsWith("der ") -> TRUE
+          const selection = selectedOption?.toLowerCase() || "";
+          correct = target.startsWith(selection + " ") || target === selection;
       }
       setIsCorrect(correct);
       setStatus('checked');
   };
 
   const renderContextWithGap = () => {
-    if (!data.question_context) return null;
-    const parts = data.question_context.split('_______');
-    if (parts.length < 2) return <p className="text-xl font-bold text-slate-800">{data.question_context}</p>;
+    // Fallback gdy AI zapomni luki
+    let context = data.question_context || "_______";
+    if (!context.includes('_______')) context += " _______";
+
+    const parts = context.split('_______');
+    const preText = parts[0] || "";
+    const postText = parts.length > 1 ? parts[1] : "";
 
     return (
         <div className="flex flex-wrap items-center gap-2 text-xl font-mono bg-white p-4 rounded-xl shadow-sm leading-loose w-full border border-slate-200 justify-center">
-            <span className="text-slate-700">{parts[0]}</span>
+            {preText && <span className="text-slate-700">{formatText(preText)}</span>}
             <div className="relative inline-block min-w-[140px]">
                 <input 
                     type="text" 
@@ -78,17 +150,18 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                     placeholder="..."
                 />
             </div>
-            <span className="text-slate-700">{parts[1]}</span>
+            {postText && <span className="text-slate-700">{formatText(postText)}</span>}
         </div>
     );
   };
 
-  const isSplitLayout = !!data.image_url;
+  // Układ: Pełny ekran dla historii/intro, Dzielony dla zadań z obrazkiem
+  const isFullWidth = ['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type);
+  const showImage = !isFullWidth && !!data.image_url;
 
   return (
     <div className="w-full max-w-7xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-white mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 flex flex-col min-h-[600px]">
       
-      {/* Top Bar */}
       <div className="bg-indigo-50 p-6 flex justify-between items-center border-b border-indigo-100 shrink-0">
         <span className="bg-white text-indigo-700 px-4 py-2 rounded-full text-sm font-black uppercase tracking-widest shadow-sm">
           Step {data.step_number}
@@ -100,24 +173,30 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
         )}
       </div>
 
-      <div className={`flex-1 ${isSplitLayout ? 'grid grid-cols-2' : 'flex flex-col'}`}>
-          {isSplitLayout ? (
-              <div className="bg-slate-100 flex items-center justify-center p-10 border-r border-slate-200 h-full">
-                  <img 
-                      src={data.image_url} 
-                      alt="visual" 
-                      className="max-h-[450px] w-full object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
-                  />
+      <div className={`flex-1 ${showImage ? 'grid grid-cols-2' : 'flex flex-col'}`}>
+          {showImage ? (
+              <div className="bg-slate-100 flex items-center justify-center p-8 border-r border-slate-200 h-full relative overflow-hidden">
+                  {data.image_url ? (
+                      <img 
+                          src={data.image_url} 
+                          alt="visual" 
+                          onError={(e) => { e.currentTarget.style.display='none'; }}
+                          className="w-auto h-auto max-w-full max-h-[450px] object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
+                      />
+                  ) : (
+                      <div className="text-slate-300 font-bold">Image Placeholder</div>
+                  )}
               </div>
           ) : null}
 
-          <div className={`flex flex-col justify-center p-12 ${isSplitLayout ? '' : 'max-w-4xl mx-auto w-full items-center text-center'}`}>
+          <div className={`flex flex-col justify-center p-12 ${showImage ? '' : 'max-w-4xl mx-auto w-full items-center text-center'}`}>
               <div className="mb-8 w-full">
-                  <h1 className="text-4xl font-black text-slate-800 mb-4 leading-tight">{data.title}</h1>
-                  <p className="text-xl text-slate-500 font-medium">{data.content}</p>
+                  <h1 className="text-4xl font-black text-slate-800 mb-4 leading-tight">{formatText(data.title)}</h1>
+                  <p className="text-xl text-slate-500 font-medium">{formatText(data.content)}</p>
               </div>
 
               <div className="w-full space-y-8">
+                  {/* WORD CARD */}
                   {data.visual_type === 'word_card' && (
                     <div className={`p-8 rounded-[2rem] border-4 text-center transition-colors duration-500 w-full ${getArticleColor(data.article || '')}`}>
                       <div className="text-sm font-black uppercase opacity-60 mb-2 tracking-widest">German Word</div>
@@ -128,28 +207,29 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                       {data.plural && (
                          <div className="text-xl font-bold text-slate-600 mb-4 bg-white/50 inline-block px-4 py-1 rounded-lg">Plural: {data.plural}</div>
                       )}
-                      <div className="text-2xl italic opacity-90 font-serif border-t border-black/10 pt-4 mt-2">"{data.example_sentence}"</div>
+                      <div className="text-2xl italic opacity-90 font-serif border-t border-black/10 pt-4 mt-2">"{formatText(data.example_sentence)}"</div>
                     </div>
                   )}
 
+                  {/* MNEMONICS */}
                   {data.mnemonics && (
                     <div className="bg-amber-50 border-l-8 border-amber-400 p-6 rounded-r-2xl shadow-sm text-left w-full">
                       <p className="text-amber-800 font-bold text-lg leading-relaxed italic">
-                        💡 {data.mnemonics}
+                        💡 {formatText(data.mnemonics)}
                       </p>
                     </div>
                   )}
 
-                  {/* NOTE: Intro/Story/Summary logic */}
-                  {(data.visual_type === 'story' || data.visual_type === 'intro' || data.visual_type === 'summary') && (
-                    <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 font-serif text-2xl text-slate-700 leading-loose w-full">
-                      {data.example_sentence || data.content}
+                  {/* TEXT CONTENT (Full Screen) */}
+                  {(['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type)) && (
+                    <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 font-serif text-2xl text-slate-700 leading-loose w-full whitespace-pre-wrap">
+                      {formatText(data.example_sentence || data.content)}
                     </div>
                   )}
 
+                  {/* FILL GAP */}
                   {data.interaction_type === 'fill_gap' && (
                       <div className="bg-indigo-50 p-8 rounded-[2rem] border-2 border-indigo-100 w-full">
-                          {/* Only render context here, do NOT render extra text above */}
                           {renderContextWithGap()}
                           {!status || status === 'idle' ? (
                               <div className="flex gap-3 justify-center flex-wrap mt-6">
@@ -167,9 +247,10 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                       </div>
                   )}
 
+                  {/* CHOICE */}
                   {data.interaction_type === 'choice' && data.options && (
                       <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 w-full">
-                           <p className="text-3xl font-bold text-slate-700 mb-8 text-center">{data.question_context}</p>
+                           <p className="text-3xl font-bold text-slate-700 mb-8 text-center">{formatText(data.question_context)}</p>
                            <div className="flex justify-center gap-4">
                               {data.options.map((opt: string) => (
                                   <button
@@ -180,7 +261,7 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                                           selectedOption === opt 
                                           ? 'bg-indigo-600 text-white border-indigo-700 scale-105 shadow-xl' 
                                           : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50'
-                                      } ${status === 'checked' && opt.toLowerCase() === data.german_word.toLowerCase() ? '!bg-green-500 !border-green-600 !text-white' : ''} 
+                                      } ${status === 'checked' && (data.german_word?.toLowerCase().includes(opt.toLowerCase())) ? '!bg-green-500 !border-green-600 !text-white' : ''} 
                                         ${status === 'checked' && selectedOption === opt && !isCorrect ? '!bg-red-500 !border-red-600 !text-white' : ''}
                                       `}
                                   >
@@ -191,6 +272,7 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                       </div>
                   )}
 
+                  {/* FEEDBACK */}
                   {status === 'checked' && (
                       <div className={`p-6 rounded-2xl text-center font-bold text-xl animate-in fade-in zoom-in duration-300 w-full ${isCorrect ? 'bg-green-100 text-green-700 border-2 border-green-200' : 'bg-red-100 text-red-700 border-2 border-red-200'}`}>
                           {isCorrect ? (
@@ -208,6 +290,7 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                       </div>
                   )}
 
+                  {/* NEXT BUTTON */}
                   <button 
                     onClick={() => {
                         if (data.interaction_type !== 'read_only' && status === 'idle') {
@@ -240,12 +323,12 @@ const ImageLabeling: React.FC = () => {
   const [userInput, setUserInput] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<any>(null);
+  
+  const [showDemographics, setShowDemographics] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [localAttempt, setLocalAttempt] = useState(1);
-  const [mistakeHistory, setMistakeHistory] = useState<string[]>([]);
 
   useEffect(() => {
     document.body.style.backgroundColor = '#f8fafc';
@@ -277,15 +360,13 @@ const ImageLabeling: React.FC = () => {
     setFeedback(null);
     setUserInput('');
     setSelectedArticle(null);
-    setLocalAttempt(1);
-    setMistakeHistory([]);
     
     try {
       const resp = await fetch(`/experiment/trial/${sessionId}`);
       const data = await resp.json();
       
       if (data.status === "completed") {
-        setIsComplete(true);
+        setShowDemographics(true);
       } else if (data.status === "transition") {
         fetchNextTrial(sessionId);
       } else {
@@ -312,7 +393,6 @@ const ImageLabeling: React.FC = () => {
     }
 
     let finalAnswer = answer || userInput;
-    
     if (currentTrial?.task_type === 'type_word' && !answer) {
         if (!selectedArticle) { setError("Please select an article."); return; }
         if (!userInput.trim()) return;
@@ -326,12 +406,7 @@ const ImageLabeling: React.FC = () => {
       const resp = await fetch('/experiment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          session_id: session.session_id, 
-          user_answer: finalAnswer, 
-          start_time: 0,
-          history: mistakeHistory
-        }),
+        body: JSON.stringify({ session_id: session.session_id, user_answer: finalAnswer, start_time: 0 }),
       });
       const data = await resp.json();
       setFeedback(data);
@@ -339,12 +414,28 @@ const ImageLabeling: React.FC = () => {
       if (data.transition) {
           setTimeout(() => fetchNextTrial(session.session_id), 1500);
       } 
-      else if (!data.is_correct && !data.move_next) {
-          setLocalAttempt(prev => prev + 1);
-          setMistakeHistory(prev => [...prev, finalAnswer]);
-      }
     } catch { setError("Submission error."); }
     finally { setIsLoading(false); }
+  };
+
+  const handleDemographicsSubmit = async (formData: any) => {
+      setIsLoading(true);
+      try {
+          await fetch('/experiment/finalize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  session_id: session.session_id,
+                  ...formData
+              })
+          });
+          setShowDemographics(false);
+          setIsComplete(true);
+      } catch {
+          setError("Failed to save data.");
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   const skipToPhase = async (phase: string) => {
@@ -371,12 +462,15 @@ const ImageLabeling: React.FC = () => {
   };
 
   if (isComplete) return (
-    <div className="w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl text-center p-12 border-8 border-white">
+    <div className="w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl text-center p-12 border-8 border-white mx-auto mt-12">
       <Icon.CheckCircle size={64} className="text-green-500 mx-auto mb-6" />
-      <h1 className="text-4xl font-black text-slate-700 mb-8 tracking-tight">All Tasks Finished!</h1>
-      <button onClick={() => window.location.reload()} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95">Restart</button>
+      <h1 className="text-4xl font-black text-slate-700 mb-4 tracking-tight">Experiment Completed!</h1>
+      <p className="text-slate-500 mb-8">Thank you for your participation. Your data has been saved.</p>
+      <button onClick={() => window.location.reload()} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95">Start New Session</button>
     </div>
   );
+
+  if (showDemographics) return (<DemographicsForm onSubmit={handleDemographicsSubmit} />);
 
   if (!session) return (
     <div className="w-full max-w-3xl text-center">
@@ -450,7 +544,6 @@ const ImageLabeling: React.FC = () => {
                     {currentTrial?.task_type !== 'type_word' ? (
                         <div className="grid grid-cols-1 gap-4">
                           {currentTrial?.options?.map((opt: string) => (
-                            // FIXED: Added bg-white and text-slate-800 to ensure visibility against global styles
                             <button key={opt} onClick={() => submitAnswer(opt)} className="py-6 px-8 border-2 border-slate-200 rounded-2xl font-black text-xl bg-white hover:bg-blue-50 text-slate-800 transition-all text-left flex justify-between items-center group shadow-sm hover:border-blue-400">
                               {opt}
                               <Icon.ArrowRight size={24} className="opacity-0 group-hover:opacity-100 transition-all text-blue-500" />
@@ -465,7 +558,6 @@ const ImageLabeling: React.FC = () => {
                               ))}
                             </div>
                             <div className="flex gap-2">
-                              {/* FIXED: Added bg-white and text-slate-900 to input */}
                               <input autoFocus type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && submitAnswer()} className="flex-1 p-5 border-2 border-slate-300 rounded-2xl outline-none text-2xl font-bold shadow-inner focus:border-blue-500 transition-all text-slate-900 bg-white" placeholder="Type here..." />
                               <button onClick={() => submitAnswer()} disabled={!userInput.trim() || !selectedArticle} className="px-10 py-2 bg-blue-600 text-white rounded-2xl font-black text-xl active:scale-95 shadow-lg hover:bg-blue-700 transition-all disabled:bg-slate-100 disabled:text-slate-400">SEND</button>
                             </div>

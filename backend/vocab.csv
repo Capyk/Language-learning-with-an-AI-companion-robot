@@ -1,50 +1,46 @@
-﻿image_id;scenario;german_word;article;plural;english_gloss;cefr_level;example_de;example_en
-img_01;apartment_request;Wohnung;die;Wohnungen;apartment;A1;Ich suche eine Wohnung.;I am looking for an apartment.
-img_02;apartment_request;Zimmer;das;Zimmer;room;A1;Das Zimmer ist groß.;The room is big.
-img_03;apartment_request;Küche;die;Küchen;kitchen;A1;Die Küche ist neu.;The kitchen is new.
-img_04;apartment_request;Bad;das;Bäder;bathroom;A1;Das Bad ist sauber.;The bathroom is clean.
-img_05;apartment_request;Tür;die;Türen;door;A1;Die Tür ist offen.;The door is open.
-img_06;apartment_request;Fenster;das;Fenster;window;A1;Das Fenster ist zu.;The window is closed.
-img_07;apartment_request;Schlüssel;der;Schlüssel;key;A1;Ich habe den Schlüssel.;I have the key.
-img_08;apartment_request;Tisch;der;Tische;table;A1;Der Tisch ist alt.;The table is old.
-img_09;apartment_request;Stuhl;der;Stühle;chair;A1;Der Stuhl ist bequem.;The chair is comfortable.
-;;;;;;;;
-img_10;travel;Ticket;das;Tickets;ticket;A1;Ich kaufe ein Ticket.;I buy a ticket.
-img_11;travel;Zug;der;Züge;train;A1;Der Zug kommt spät.;The train arrives late.
-img_12;travel;Bus;der;Busse;bus;A1;Der Bus ist voll.;The bus is full.
-img_13;travel;Bahnhof;der;Bahnhöfe;train station;A2;Der Bahnhof ist groß.;The station is big.
-img_14;travel;Koffer;der;Koffer;suitcase;A1;Der Koffer ist schwer.;The suitcase is heavy.
-img_15;travel;Fahrplan;der;Fahrpläne;timetable;A1;Der Fahrplan zeigt die Abfahrtszeiten;The timetable shows the departure times.
-img_16;travel;Pass;der;Pässe;passport;A2;Mein Pass ist neu.;My passport is new.
-img_17;travel;Hotel;das;Hotels;hotel;A1;Das Hotel ist teuer.;The hotel is expensive.
-img_18;travel;Taxi;das;Taxis;taxi;A1;Ich nehme ein Taxi.;I take a taxi.
-;;;;;;;;
-img_19;swimming;Schwimmbad;das;Schwimmbäder;swimming pool;A2;Das Schwimmbad ist offen.;The pool is open.
-img_20;swimming;Wasser;das;;water;A1;Das Wasser ist kalt.;The water is cold.
-img_21;swimming;Handtuch;das;Handtücher;towel;A1;Ich brauche ein Handtuch.;I need a towel.
-img_22;swimming;Schwimmbrille;die;Schwimmbrillen;goggles;A1;Die Schwimmbrille ist nass.;The goggles are wet.
-img_23;swimming;Uhr;die;Uhren;clock/watch;A1;Die Uhr ist neu.;The watch is new.
-img_24;swimming;Termin;der;Termine;appointment;A2;Ich habe einen Termin.;I have an appointment.
-img_25;swimming;Spind;der;Spinde;locker;A1;Der Spind ist offen;The locker is open.
-img_26;swimming;Badeanzug;der;Badeanzüge;swimsuit;A2;Der Badeanzug ist blau.;The swimsuit is blue.
-img_27;swimming;Pool;der;Pools;pool;A1;Der Pool ist draußen.;The pool is outside.
-;;;;;;;;
-img_28;pet_sitting;Hund;der;Hunde;dog;A1;Der Hund ist freundlich.;The dog is friendly.
-img_29;pet_sitting;Katze;die;Katzen;cat;A1;Die Katze schläft.;The cat sleeps.
-img_30;pet_sitting;Tier;das;Tiere;animal;A1;Das Tier ist klein.;The animal is small.
-img_31;pet_sitting;Futter;das;;animal food;A1;Das Futter ist da.;The food is there.
-img_32;pet_sitting;Napf;der;Näpfe;low bowl;A2;Der Napf ist leer.;The bowl is empty.
-img_33;pet_sitting;Leine;die;Leinen;leash;A1;Die Leine ist lang.;The leash is long.
-img_34;pet_sitting;Garten;der;Gärten;garden;A1;Der Garten ist grün.;The garden is green.
-img_35;pet_sitting;Haus;das;Häuser;house;A1;Das Haus ist groß.;The house is big.
-img_36;pet_sitting;Besitzer/Besitzerin;der/die;Besitzer/Besitzerinnen;owner;A2;Die Besitzerin kommt.;The owner arrives.
-;;;;;;;;
-img_37;birthday;Geburtstag;der;Geburtstage;birthday;A1;Heute ist mein Geburtstag.;Today is my birthday.
-img_38;birthday;Kuchen;der;Kuchen;cake;A1;Der Kuchen ist lecker.;The cake is tasty.
-img_39;birthday;Geschenk;das;Geschenke;gift;A1;Das Geschenk ist schön.;The gift is nice.
-img_40;birthday;Kerze;die;Kerzen;candle;A1;Die Kerze brennt.;The candle burns.
-img_41;birthday;Karte;die;Karten;card;A1;Ich schreibe eine Karte.;I write a card.
-img_42;birthday;Ballon;der;Ballons;balloon;A1;Der Ballon ist rot.;The balloon is red.
-img_43;birthday;Party;die;Partys;party;A1;Die Party ist toll.;The party is great.
-img_44;birthday;Gast;der;Gäste;guest;A1;Der Gast kommt.;The guest comes.
-img_45;birthday;Tisch;der;Tische;table;A1;Der Tisch ist gedeckt.;The table is set.
+﻿image_id;scenario;german_word;article;plural;plural_wrong_1;plural_wrong_2;cefr_level;english_gloss;example_de;example_en
+img_01;apartment_request;Wohnung;die;Wohnungen;Wohnungs;Wohnunge;A1;apartment;Ich suche eine Wohnung.;I am looking for an apartment.
+img_02;apartment_request;Zimmer;das;Zimmer;Zimmers;Zimmeren;A1;room;Das Zimmer ist groß.;The room is big.
+img_03;apartment_request;Küche;die;Küchen;Küches;Kücheen;A1;kitchen;Die Küche ist neu.;The kitchen is new.
+img_04;apartment_request;Bad;das;Bäder;Bads;Baden;A1;bathroom;Das Bad ist sauber.;The bathroom is clean.
+img_05;apartment_request;Tür;die;Türen;Türs;Türe;A1;door;Die Tür ist offen.;The door is open.
+img_06;apartment_request;Fenster;das;Fenster;Fensters;Fensteren;A1;window;Das Fenster ist zu.;The window is closed.
+img_07;apartment_request;Schlüssel;der;Schlüssel;Schlüssels;Schlüsselen;A1;key;Ich habe den Schlüssel.;I have the key.
+img_08;apartment_request;Tisch;der;Tische;Tischs;Tischen;A1;table;Der Tisch ist alt.;The table is old.
+img_09;apartment_request;Stuhl;der;Stühle;Stuhls;Stuhlen;A1;chair;Der Stuhl ist bequem.;The chair is comfortable.
+img_10;travel;Ticket;das;Tickets;Ticketen;Tickete;A1;ticket;Ich kaufe ein Ticket.;I buy a ticket.
+img_11;travel;Zug;der;Züge;Zugs;Zugen;A1;train;Der Zug kommt gleich.;The train is arriving soon.
+img_12;travel;Bus;der;Busse;Buss;Busen;A1;bus;Ich nehme den Bus.;I take the bus.
+img_13;travel;Bahnhof;der;Bahnhöfe;Bahnhofs;Bahnhofen;A1;train station;Der Bahnhof ist groß.;The train station is big.
+img_14;travel;Koffer;der;Koffer;Koffers;Kofferen;A1;suitcase;Mein Koffer ist schwer.;My suitcase is heavy.
+img_15;travel;Fahrplan;der;Fahrpläne;Fahrplans;Fahrplanen;A1;timetable;Wir fahren zum Flughafen.;We are going to the airport.
+img_16;travel;Pass;der;Pässe;Passs;Passen;A1;passport;Ich brauche meinen Pass.;I need my passport.
+img_17;travel;Hotel;das;Hotels;Hotelen;Hötels;A1;hotel;Meine Tasche ist voll.;My bag is full.
+img_18;travel;Taxi;das;Taxis;Taxie;Taxies;A1;taxi;Ich lese die Karte.;I read the map.
+img_19;swimming;Schwimmbad;das;Schwimmbäder;Schwimmbads;Schwimmbaden;A1;swimming pool;Das Schwimmbad ist groß.;The swimming pool is big.
+img_20;swimming;Wasser;das;Wasser;Wassers;Wasseren;A1;water;Das Wasser ist kalt.;The water is cold.
+img_21;swimming;Handtuch;das;Handtücher;Handtuchs;Handtuchen;A1;towel;Ich brauche ein Handtuch.;I need a towel.
+img_22;swimming;Schwimmbrille;die;Schwimmbrillen;Schwimmbrilles;Schwimmbrille;A1;goggles;Seine Badehose ist rot.;His swimming trunks are red.
+img_23;swimming;Uhr;die;Uhren;Uhrs;Uhre;A1;clock/watch;Sie trägt einen Badeanzug.;She is wearing a swimsuit.
+img_24;swimming;Termin;der;Termine;Termins;Terminen;A1;appointment;Meine Brille ist neu.;My glasses are new.
+img_25;swimming;Spind;der;Spinde;Spinds;Spinden;A1;locker;Die Sonne scheint.;The sun is shining.
+img_26;swimming;Badeanzug;der;Badeanzüge;Badeanzugs;Badeanzugen;A1;swimsuit;Wir spielen mit dem Ball.;We play with the ball.
+img_27;swimming;Pool;der;Pools;Poole;Poolen;A1;pool;Der Strand ist schön.;The beach is beautiful.
+img_28;pet_sitting;Hund;der;Hunde;Hunds;Hunden;A1;dog;Der Hund ist freundlich.;The dog is friendly.
+img_29;pet_sitting;Katze;die;Katzen;Katzes;Katzeen;A1;cat;Die Katze schläft.;The cat sleeps.
+img_30;pet_sitting;Tier;das;Tiere;Tiers;Tieren;A1;animal;Das Tier ist klein.;The animal is small.
+img_31;pet_sitting;Futter;das;;Futters;Futtere;A1;animal food;Das Futter ist da.;The food is there.
+img_32;pet_sitting;Napf;der;Näpfe;Napfs;Napfen;A2;low bowl;Der Napf ist leer.;The bowl is empty.
+img_33;pet_sitting;Leine;die;Leinen;Leines;Leineen;A1;leash;Die Leine ist lang.;The leash is long.
+img_34;pet_sitting;Garten;der;Gärten;Gartens;Gartenen;A1;garden;Der Garten ist grün.;The garden is green.
+img_35;pet_sitting;Haus;das;Häuser;Hauss;Hausen;A1;house;Das Haus ist groß.;The house is big.
+img_36;pet_sitting;Besitzer/Besitzerin;der/die;Besitzer/Besitzerinnen;Besitzers/Besitzerines;Besitzeren/Besitzerinnen;A2;owner;Die Besitzerin kommt.;The owner arrives.
+img_37;birthday;Geburtstag;der;Geburtstage;Geburtstags;Geburtstagen;A1;birthday;Heute ist mein Geburtstag.;Today is my birthday.
+img_38;birthday;Kuchen;der;Kuchen;Kuchens;Kuchenen;A1;cake;Der Kuchen ist lecker.;The cake is tasty.
+img_39;birthday;Geschenk;das;Geschenke;Geschenks;Geschenken;A1;gift;Das Geschenk ist toll.;The gift is great.
+img_40;birthday;Kerze;die;Kerzen;Kerzes;Kerzeen;A1;candle;Die Kerze brennt.;The candle is burning.
+img_41;birthday;Karte;die;Karten;Kartes;Karteen;A1;card;Die Party ist lustig.;The party is fun.
+img_42;birthday;Ballon;der;Ballons;Ballone;Ballonen;A1;balloon;Mein Freund kommt.;My friend is coming.
+img_43;birthday;Party;die;Partys;Partyes;Party;A1;party;Die Musik ist laut.;The music is loud.
+img_44;birthday;Gast;der;Gäste;Gasts;Gasten;A1;guest;Der Ballon fliegt.;The balloon is flying.
+img_45;birthday;Tisch;der;Tische;Tischs;Tischen;A1;table;Ich schreibe eine Karte.;I am writing a card.

@@ -1,34 +1,10 @@
-# ===============================================
-# CORE BACKEND (API, SERVER, & UTILITIES)
-# ===============================================
 fastapi
-uvicorn[standard]
-python-multipart
-pydantic
-
-# For loading the GEMINI_API_KEY from the .env file
+uvicorn
+pandas
 python-dotenv
-
-## STATE MANAGEMENT & ASYNCHRONOUS TASKS ##
-redis
-celery
-
-## GEMINI API INTERFACE ##
-google-genai # Google AI SDK for asynchronous calls
-httpx        # Recommended async HTTP client for external API calls
-
-# ===============================================
-# LLM FINE-TUNING & GEC CORE (FOR TRAINING/INFERENCE)
-# ===============================================
-# NOTE: The versions of 'torch' and related libraries must match your CUDA version.
-pandas>=2.2.0         # Retains recent release, compatible with numpy 1.x.
-numpy==1.26.2         # Explicitly kept for stability with pandas 2.x/torch 2.1.1.
-scipy>=1.16.0         # MUST BE UPDATED for better Python 3.13 compatibility!
-
-## HUGGING FACE & DEEP LEARNING ##
-transformers==4.35.2
-datasets==2.15.0
-peft==0.7.1
-accelerate==0.24.1
-torch==2.1.1 
-bitsandbytes==0.41.3
+google-genai
+google-api-core
+supabase
+pydantic
+python-multipart
+requests
