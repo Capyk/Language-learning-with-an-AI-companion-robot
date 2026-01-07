@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
+// --- KONFIGURACJA API (VERCEL <-> RENDER) ---
+// To jest ta kluczowa zmiana. Wykrywamy czy jesteśmy na produkcji.
+const API_BASE = import.meta.env.PROD 
+  ? 'https://german-learning-language-backend.onrender.com' 
+  : ''; 
+
 // --- ICONS ---
 const Icon = {
   CheckCircle: ({ size = 24, className = "" }: any) => (
@@ -108,14 +114,11 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
       const target = data.german_word ? data.german_word.trim().toLowerCase() : "";
 
       if (data.interaction_type === 'fill_gap') {
-          // Walidacja pisowni: Sprawdzamy czy wpisane słowo to target, 
-          // LUB czy target kończy się tym słowem (np. Target="der Tisch", Input="Tisch")
+          // Walidacja: sprawdza czy wpisane słowo jest w celu (np. "Tisch" w "der Tisch")
           const input = localInput.trim().toLowerCase();
           correct = (input === target) || target.endsWith(" " + input);
       } else if (data.interaction_type === 'choice') {
-          // Walidacja rodzajnika:
-          // Jeśli cel to "der Tisch", a wybrano "der", to:
-          // "der Tisch".startsWith("der ") -> TRUE
+          // Walidacja: sprawdza czy wybrany "der" pasuje do "der Tisch"
           const selection = selectedOption?.toLowerCase() || "";
           correct = target.startsWith(selection + " ") || target === selection;
       }
@@ -124,7 +127,6 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
   };
 
   const renderContextWithGap = () => {
-    // Fallback gdy AI zapomni luki
     let context = data.question_context || "_______";
     if (!context.includes('_______')) context += " _______";
 
@@ -155,9 +157,14 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
     );
   };
 
-  // Układ: Pełny ekran dla historii/intro, Dzielony dla zadań z obrazkiem
   const isFullWidth = ['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type);
   const showImage = !isFullWidth && !!data.image_url;
+
+  // URL obrazka: Jeśli API_BASE jest ustawione, używamy go też do obrazków? 
+  // Nie, obrazki są serwowane statycznie. Jeśli na Vercel -> pobieramy z backendu na Renderze.
+  const imageUrl = data.image_url 
+    ? (data.image_url.startsWith('http') ? data.image_url : `${API_BASE}${data.image_url}`)
+    : null;
 
   return (
     <div className="w-full max-w-7xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-white mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 flex flex-col min-h-[600px]">
@@ -176,9 +183,9 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
       <div className={`flex-1 ${showImage ? 'grid grid-cols-2' : 'flex flex-col'}`}>
           {showImage ? (
               <div className="bg-slate-100 flex items-center justify-center p-8 border-r border-slate-200 h-full relative overflow-hidden">
-                  {data.image_url ? (
+                  {imageUrl ? (
                       <img 
-                          src={data.image_url} 
+                          src={imageUrl} 
                           alt="visual" 
                           onError={(e) => { e.currentTarget.style.display='none'; }}
                           className="w-auto h-auto max-w-full max-h-[450px] object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
@@ -196,6 +203,7 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
               </div>
 
               <div className="w-full space-y-8">
+                  
                   {/* WORD CARD */}
                   {data.visual_type === 'word_card' && (
                     <div className={`p-8 rounded-[2rem] border-4 text-center transition-colors duration-500 w-full ${getArticleColor(data.article || '')}`}>
@@ -220,7 +228,7 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                     </div>
                   )}
 
-                  {/* TEXT CONTENT (Full Screen) */}
+                  {/* TEXT CONTENT */}
                   {(['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type)) && (
                     <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 font-serif text-2xl text-slate-700 leading-loose w-full whitespace-pre-wrap">
                       {formatText(data.example_sentence || data.content)}
@@ -343,7 +351,7 @@ const ImageLabeling: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const resp = await fetch('/experiment/init', {
+      const resp = await fetch(`${API_BASE}/experiment/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: `user_${Date.now()}`, condition }),
@@ -362,7 +370,7 @@ const ImageLabeling: React.FC = () => {
     setSelectedArticle(null);
     
     try {
-      const resp = await fetch(`/experiment/trial/${sessionId}`);
+      const resp = await fetch(`${API_BASE}/experiment/trial/${sessionId}`);
       const data = await resp.json();
       
       if (data.status === "completed") {
@@ -380,7 +388,7 @@ const ImageLabeling: React.FC = () => {
     if (answer === 'next_step') {
         setIsLoading(true);
         try {
-            const resp = await fetch('/experiment/submit', {
+            const resp = await fetch(`${API_BASE}/experiment/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: session.session_id, user_answer: "NEXT", start_time: 0 }),
@@ -403,7 +411,7 @@ const ImageLabeling: React.FC = () => {
     setError(null);
     
     try {
-      const resp = await fetch('/experiment/submit', {
+      const resp = await fetch(`${API_BASE}/experiment/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: session.session_id, user_answer: finalAnswer, start_time: 0 }),
@@ -421,7 +429,7 @@ const ImageLabeling: React.FC = () => {
   const handleDemographicsSubmit = async (formData: any) => {
       setIsLoading(true);
       try {
-          await fetch('/experiment/finalize', {
+          await fetch(`${API_BASE}/experiment/finalize`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -442,7 +450,7 @@ const ImageLabeling: React.FC = () => {
     if (!session) return;
     setIsLoading(true);
     try {
-        await fetch('/experiment/skip', {
+        await fetch(`${API_BASE}/experiment/skip`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({session_id: session.session_id, phase})

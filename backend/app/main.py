@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 
 # Internal imports
@@ -14,6 +15,14 @@ import app.llm_service as llm_service
 load_dotenv()
 
 app = FastAPI(title="AI Tutor Backend - Experiment Version")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Lub wpisz tu adres Vercel np. ["https://twoja-apka.vercel.app"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Static Files Configuration ---
 # This allows the frontend to access images via URLs like http://localhost:8000/images/img_01.png
