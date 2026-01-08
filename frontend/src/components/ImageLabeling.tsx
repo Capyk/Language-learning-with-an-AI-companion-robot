@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// --- KONFIGURACJA API (VERCEL <-> RENDER) ---
-// To jest ta kluczowa zmiana. Wykrywamy czy jesteśmy na produkcji.
-const API_BASE = import.meta.env.PROD 
-  ? 'https://german-learning-language-backend.onrender.com' 
-  : ''; 
+// --- SZTYWNY ADRES BACKENDU (BEZ IF-ÓW, BEZ ZMIENNYCH) ---
+// Dzięki temu frontend ZAWSZE wie, że ma pytać ten serwer, a nie siebie.
+const API_BASE = 'https://german-learning-language-backend.onrender.com';
 
 // --- ICONS ---
 const Icon = {
@@ -25,7 +23,6 @@ const Icon = {
   )
 };
 
-// --- HELPER: TEXT FORMATTER (Bold) ---
 const formatText = (text: string) => {
     if (!text) return null;
     const parts = text.split(/(\*\*.*?\*\*)/g);
@@ -37,7 +34,6 @@ const formatText = (text: string) => {
     });
 };
 
-// --- DEMOGRAPHICS FORM ---
 const DemographicsForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
     const [formData, setFormData] = useState({ age: '', gender: '', education: '', german_level: '' });
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSubmit(formData); };
@@ -86,7 +82,6 @@ const DemographicsForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
     );
 };
 
-// --- LEARNING SCREEN RENDERER ---
 const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => void }) => {
   const [localInput, setLocalInput] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -114,11 +109,9 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
       const target = data.german_word ? data.german_word.trim().toLowerCase() : "";
 
       if (data.interaction_type === 'fill_gap') {
-          // Walidacja: sprawdza czy wpisane słowo jest w celu (np. "Tisch" w "der Tisch")
           const input = localInput.trim().toLowerCase();
           correct = (input === target) || target.endsWith(" " + input);
       } else if (data.interaction_type === 'choice') {
-          // Walidacja: sprawdza czy wybrany "der" pasuje do "der Tisch"
           const selection = selectedOption?.toLowerCase() || "";
           correct = target.startsWith(selection + " ") || target === selection;
       }
@@ -160,8 +153,8 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
   const isFullWidth = ['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type);
   const showImage = !isFullWidth && !!data.image_url;
 
-  // URL obrazka: Jeśli API_BASE jest ustawione, używamy go też do obrazków? 
-  // Nie, obrazki są serwowane statycznie. Jeśli na Vercel -> pobieramy z backendu na Renderze.
+  // --- BUDOWANIE URL OBRAZKA (ABSOLUTNA ŚCIEŻKA) ---
+  // Jeśli backend zwrócił "/images/img_01.jpg", my doklejamy "https://....com" na początku.
   const imageUrl = data.image_url 
     ? (data.image_url.startsWith('http') ? data.image_url : `${API_BASE}${data.image_url}`)
     : null;
@@ -182,14 +175,20 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
 
       <div className={`flex-1 ${showImage ? 'grid grid-cols-2' : 'flex flex-col'}`}>
           {showImage ? (
-              <div className="bg-slate-100 flex items-center justify-center p-8 border-r border-slate-200 h-full relative overflow-hidden">
+              <div className="bg-slate-100 flex flex-col items-center justify-center p-8 border-r border-slate-200 h-full relative overflow-hidden">
                   {imageUrl ? (
-                      <img 
-                          src={imageUrl} 
-                          alt="visual" 
-                          onError={(e) => { e.currentTarget.style.display='none'; }}
-                          className="w-auto h-auto max-w-full max-h-[450px] object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
-                      />
+                      <>
+                        <img 
+                            src={imageUrl} 
+                            alt="visual" 
+                            onError={(e) => { e.currentTarget.style.display='none'; }}
+                            className="w-auto h-auto max-w-full max-h-[450px] object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
+                        />
+                        {/* DEBUGGER: Pokaże Ci dokładny adres, z którego próbuje pobrać obrazek */}
+                        <div className="mt-4 p-2 bg-black text-white text-[10px] font-mono break-all max-w-full text-center opacity-70">
+                            URL: {imageUrl}
+                        </div>
+                      </>
                   ) : (
                       <div className="text-slate-300 font-bold">Image Placeholder</div>
                   )}
@@ -203,7 +202,6 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
               </div>
 
               <div className="w-full space-y-8">
-                  
                   {/* WORD CARD */}
                   {data.visual_type === 'word_card' && (
                     <div className={`p-8 rounded-[2rem] border-4 text-center transition-colors duration-500 w-full ${getArticleColor(data.article || '')}`}>
