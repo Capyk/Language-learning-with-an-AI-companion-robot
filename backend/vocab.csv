@@ -13,19 +13,19 @@ img_11;travel;Zug;der;Züge;Zugs;Zugen;A1;train;Der Zug kommt gleich.;The train 
 img_12;travel;Bus;der;Busse;Buss;Busen;A1;bus;Ich nehme den Bus.;I take the bus.
 img_13;travel;Bahnhof;der;Bahnhöfe;Bahnhofs;Bahnhofen;A1;train station;Der Bahnhof ist groß.;The train station is big.
 img_14;travel;Koffer;der;Koffer;Koffers;Kofferen;A1;suitcase;Mein Koffer ist schwer.;My suitcase is heavy.
-img_15;travel;Fahrplan;der;Fahrpläne;Fahrplans;Fahrplanen;A1;timetable;Wir fahren zum Flughafen.;We are going to the airport.
+img_15;travel;Fahrplan;der;Fahrpläne;Fahrplans;Fahrplanen;A1;timetable;Der Fahrplan zeigt die Abfahrtszeiten.;The timetable shows the departure times.
 img_16;travel;Pass;der;Pässe;Passs;Passen;A1;passport;Ich brauche meinen Pass.;I need my passport.
-img_17;travel;Hotel;das;Hotels;Hotelen;Hötels;A1;hotel;Meine Tasche ist voll.;My bag is full.
-img_18;travel;Taxi;das;Taxis;Taxie;Taxies;A1;taxi;Ich lese die Karte.;I read the map.
+img_17;travel;Hotel;das;Hotels;Hotelen;Hötels;A1;hotel;Das Hotel ist teuer.;The hotel is expensive.
+img_18;travel;Taxi;das;Taxis;Taxie;Taxies;A1;taxi;Ich nehme ein Taxi.;I take a taxi.
 img_19;swimming;Schwimmbad;das;Schwimmbäder;Schwimmbads;Schwimmbaden;A1;swimming pool;Das Schwimmbad ist groß.;The swimming pool is big.
 img_20;swimming;Wasser;das;Wasser;Wassers;Wasseren;A1;water;Das Wasser ist kalt.;The water is cold.
 img_21;swimming;Handtuch;das;Handtücher;Handtuchs;Handtuchen;A1;towel;Ich brauche ein Handtuch.;I need a towel.
-img_22;swimming;Schwimmbrille;die;Schwimmbrillen;Schwimmbrilles;Schwimmbrille;A1;goggles;Seine Badehose ist rot.;His swimming trunks are red.
-img_23;swimming;Uhr;die;Uhren;Uhrs;Uhre;A1;clock/watch;Sie trägt einen Badeanzug.;She is wearing a swimsuit.
-img_24;swimming;Termin;der;Termine;Termins;Terminen;A1;appointment;Meine Brille ist neu.;My glasses are new.
-img_25;swimming;Spind;der;Spinde;Spinds;Spinden;A1;locker;Die Sonne scheint.;The sun is shining.
-img_26;swimming;Badeanzug;der;Badeanzüge;Badeanzugs;Badeanzugen;A1;swimsuit;Wir spielen mit dem Ball.;We play with the ball.
-img_27;swimming;Pool;der;Pools;Poole;Poolen;A1;pool;Der Strand ist schön.;The beach is beautiful.
+img_22;swimming;Schwimmbrille;die;Schwimmbrillen;Schwimmbrilles;Schwimmbrille;A1;goggles;Die Schwimmbrille ist nass.;The goggles are wet.
+img_23;swimming;Uhr;die;Uhren;Uhrs;Uhre;A1;clock/watch;Die Uhr ist neu.;The watch is new.
+img_24;swimming;Termin;der;Termine;Termins;Terminen;A1;appointment;Ich habe einen Termin.;I have an appointment.
+img_25;swimming;Spind;der;Spinde;Spinds;Spinden;A1;locker;Der Spind ist offen;The locker is open.
+img_26;swimming;Badeanzug;der;Badeanzüge;Badeanzugs;Badeanzugen;A1;swimsuit;Der Badeanzug ist blau.;The swimsuit is blue.
+img_27;swimming;Pool;der;Pools;Poole;Poolen;A1;pool;Der Pool ist draußen.;The pool is outside.
 img_28;pet_sitting;Hund;der;Hunde;Hunds;Hunden;A1;dog;Der Hund ist freundlich.;The dog is friendly.
 img_29;pet_sitting;Katze;die;Katzen;Katzes;Katzeen;A1;cat;Die Katze schläft.;The cat sleeps.
 img_30;pet_sitting;Tier;das;Tiere;Tiers;Tieren;A1;animal;Das Tier ist klein.;The animal is small.
@@ -39,8 +39,8 @@ img_37;birthday;Geburtstag;der;Geburtstage;Geburtstags;Geburtstagen;A1;birthday;
 img_38;birthday;Kuchen;der;Kuchen;Kuchens;Kuchenen;A1;cake;Der Kuchen ist lecker.;The cake is tasty.
 img_39;birthday;Geschenk;das;Geschenke;Geschenks;Geschenken;A1;gift;Das Geschenk ist toll.;The gift is great.
 img_40;birthday;Kerze;die;Kerzen;Kerzes;Kerzeen;A1;candle;Die Kerze brennt.;The candle is burning.
-img_41;birthday;Karte;die;Karten;Kartes;Karteen;A1;card;Die Party ist lustig.;The party is fun.
-img_42;birthday;Ballon;der;Ballons;Ballone;Ballonen;A1;balloon;Mein Freund kommt.;My friend is coming.
-img_43;birthday;Party;die;Partys;Partyes;Party;A1;party;Die Musik ist laut.;The music is loud.
-img_44;birthday;Gast;der;Gäste;Gasts;Gasten;A1;guest;Der Ballon fliegt.;The balloon is flying.
-img_45;birthday;Tisch;der;Tische;Tischs;Tischen;A1;table;Ich schreibe eine Karte.;I am writing a card.
+img_41;birthday;Karte;die;Karten;Kartes;Karteen;A1;card;Ich schreibe eine Karte.;I write a card.
+img_42;birthday;Ballon;der;Ballons;Ballone;Ballonen;A1;balloon;Der Ballon ist rot.;The balloon is red.
+img_43;birthday;Party;die;Partys;Partyes;Party;A1;party;Die Party ist toll.;The party is great.
+img_44;birthday;Gast;der;Gäste;Gasts;Gasten;A1;guest;Der Gast kommt.;The guest comes.
+img_45;birthday;Tisch;der;Tische;Tischs;Tischen;A1;table;Der Tisch ist gedeckt.;The table is set.
