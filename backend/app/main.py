@@ -1,67 +1,63 @@
-# /backend/app/main.py
-
 from dotenv import load_dotenv
 import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-# --- NOWY IMPORT ---
 from fastapi.middleware.cors import CORSMiddleware 
 from google import genai
 
-# Internal imports
 from . import endpoints
 import app.llm_service as llm_service
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI(title="AI Tutor Backend - Experiment Version")
 
-# --- CORS CONFIGURATION (KLUCZOWA ZMIANA) ---
-# Pozwalamy na połączenia z dowolnego miejsca (dla testów) lub konkretnie z Vercel
-origins = [
-    "http://localhost:5173",  # Twój lokalny frontend
-    "https://german-learning-language-backend.onrender.com", # Twój backend
-    "*" # Dopuszcza wszystko (najbezpieczniej na start, żeby zadziałało)
-]
-
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Zmienione na "*" aby na pewno zadziałało z Vercel
+    allow_origins=["*"], # Zezwól wszystkim (dla pewności)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# --------------------------------------------
 
-# --- Static Files Configuration ---
+# --- STATIC FILES CONFIGURATION & DEBUG ---
+# Zakładamy, że folder 'data' jest w głównym katalogu projektu (obok requirements.txt)
 IMAGE_DIRECTORY = "data/images"
 
-if not os.path.exists(IMAGE_DIRECTORY):
-    print(f"⚠️ Warning: The directory '{IMAGE_DIRECTORY}' does not exist. Image serving may fail.")
+# --- DIAGNOSTYKA PLIKÓW (To nam powie prawdę w logach) ---
+print(f"📂 Sprawdzam folder: {os.path.abspath(IMAGE_DIRECTORY)}")
+if os.path.exists(IMAGE_DIRECTORY):
+    files = os.listdir(IMAGE_DIRECTORY)
+    print(f"✅ Folder istnieje! Znaleziono {len(files)} plików.")
+    if len(files) > 0:
+        print(f"👀 Przykładowe pliki: {files[:5]}") # Wypisz pierwsze 5 plików
+    else:
+        print("⚠️ Folder jest PUSTY! (Sprawdź .gitignore)")
 else:
-    # Upewniamy się, że katalog istnieje, żeby uniknąć błędu 500
-    app.mount("/images", StaticFiles(directory=IMAGE_DIRECTORY), name="images")
+    print(f"❌ BŁĄD KRYTYCZNY: Folder '{IMAGE_DIRECTORY}' NIE ISTNIEJE na serwerze!")
+    # Spróbujmy znaleźć gdzie on jest
+    print("🔍 Listuję obecny katalog roboczy:")
+    print(os.listdir("."))
+    if os.path.exists("data"):
+        print("🔍 Listuję folder 'data':")
+        print(os.listdir("data"))
+# ---------------------------------------------------------
 
-# --- Router Setup ---
+# Montowanie folderu (Musi być dokładnie tak)
+# URL: /images/... -> Folder na dysku: data/images/...
+app.mount("/images", StaticFiles(directory=IMAGE_DIRECTORY), name="images")
+
 app.include_router(endpoints.router)
 
-# --- Application Startup Hook ---
 @app.on_event("startup")
 async def startup_event():
-    """
-    Executes setup logic when the FastAPI server starts.
-    """
-    
-    # 1. Initialize the Gemini Client for the LLM service
     try:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("🛑 Error: GEMINI_API_KEY not found in environment variables.")
+            print("🛑 Error: GEMINI_API_KEY not found.")
             llm_service.CLIENT_INITIALIZED = False
         else:
-            # Przekazujemy klucz, ale inicjalizacja właściwa nastąpi w llm_service
-            # jeśli używamy google-genai, obiekt klienta tworzymy tam
             llm_service.CLIENT_INITIALIZED = True
             print("✅ Gemini Client Configuration Loaded.")
     except Exception as e:
