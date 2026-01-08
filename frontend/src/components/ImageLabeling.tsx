@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// --- SZTYWNY ADRES BACKENDU (BEZ IF-ÓW, BEZ ZMIENNYCH) ---
-// Dzięki temu frontend ZAWSZE wie, że ma pytać ten serwer, a nie siebie.
+// --- SZTYWNY ADRES BACKENDU ---
 const API_BASE = 'https://german-learning-language-backend.onrender.com';
 
 // --- ICONS ---
@@ -153,8 +152,7 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
   const isFullWidth = ['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type);
   const showImage = !isFullWidth && !!data.image_url;
 
-  // --- BUDOWANIE URL OBRAZKA (ABSOLUTNA ŚCIEŻKA) ---
-  // Jeśli backend zwrócił "/images/img_01.jpg", my doklejamy "https://....com" na początku.
+  // --- LEARNING PHASE URL FIX ---
   const imageUrl = data.image_url 
     ? (data.image_url.startsWith('http') ? data.image_url : `${API_BASE}${data.image_url}`)
     : null;
@@ -184,7 +182,6 @@ const LearningScreenRenderer = ({ data, onNext }: { data: any, onNext: () => voi
                             onError={(e) => { e.currentTarget.style.display='none'; }}
                             className="w-auto h-auto max-w-full max-h-[450px] object-contain drop-shadow-2xl rounded-2xl transition-transform hover:scale-105 duration-500"
                         />
-                        {/* DEBUGGER: Pokaże Ci dokładny adres, z którego próbuje pobrać obrazek */}
                         <div className="mt-4 p-2 bg-black text-white text-[10px] font-mono break-all max-w-full text-center opacity-70">
                             URL: {imageUrl}
                         </div>
@@ -509,7 +506,13 @@ const ImageLabeling: React.FC = () => {
       );
   }
 
-  // --- RENDER FOR PRE/POST TEST (UPDATED) ---
+  // --- PRE-TEST / POST-TEST RENDERER ---
+  
+  // URL IMAGE FIX (TEŻ DLA PRE-TESTU):
+  const trialImageUrl = currentTrial?.image_url 
+    ? (currentTrial.image_url.startsWith('http') ? currentTrial.image_url : `${API_BASE}${currentTrial.image_url}`)
+    : null;
+
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-7xl px-4 py-8">
       <div className="w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-white relative min-h-[600px] flex flex-col">
@@ -529,8 +532,23 @@ const ImageLabeling: React.FC = () => {
         <div className="flex-1 grid grid-cols-2">
           
           {/* Left: Image */}
-          <div className="bg-slate-100 flex items-center justify-center p-10 border-r border-slate-200">
-              {currentTrial && <img src={currentTrial.image_url} alt="Task Image" className="max-h-[450px] w-full object-contain transition-transform group-hover:scale-105 duration-700" />}
+          <div className="bg-slate-100 flex flex-col items-center justify-center p-8 border-r border-slate-200 h-full relative overflow-hidden">
+              {trialImageUrl ? (
+                  <>
+                    <img 
+                        src={trialImageUrl} 
+                        alt="Task Image" 
+                        onError={(e) => { e.currentTarget.style.display='none'; }}
+                        className="w-auto h-auto max-w-full max-h-[450px] object-contain transition-transform group-hover:scale-105 duration-700" 
+                    />
+                    {/* DEBUGGER */}
+                    <div className="mt-4 p-2 bg-black text-white text-[10px] font-mono break-all max-w-full text-center opacity-70">
+                        URL: {trialImageUrl}
+                    </div>
+                  </>
+              ) : (
+                  <div className="text-slate-300 font-bold">Image Placeholder</div>
+              )}
               {isLoading && !feedback && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 font-bold text-blue-500 backdrop-blur-sm">Loading...</div>}
           </div>
 
