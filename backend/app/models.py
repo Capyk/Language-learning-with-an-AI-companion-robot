@@ -23,7 +23,7 @@ class TaskRequest(BaseModel):
 class SessionInit(BaseModel):
     user_id: str
     condition: str
-    access_code: Optional[str] = None # Opcjonalne w tej fazie
+    access_code: Optional[str] = None 
 
 class AnswerSubmit(BaseModel):
     session_id: str
@@ -40,7 +40,7 @@ class LearningScreen(BaseModel):
     step_number: int
     title: str
     content: str
-    visual_type: str  # 'word_card', 'story', 'summary', 'challenge', 'intro'
+    visual_type: str  
     
     german_word: Optional[str] = None
     article: Optional[str] = None 
@@ -68,7 +68,19 @@ class ImageVocabItem(BaseModel):
 
 class DemographicData(BaseModel):
     session_id: str
-    age: Optional[str] = None
+    age: str
     gender: str
     education: str
     german_level: str
+    questionnaire: Dict[str, Any] 
+
+# Logika wyniku
+class LogEntry(BaseModel):
+    phase: str
+    word: str
+    task_type: str
+    user_input: str
+    # Score as float (1.0, 0.5, 0.0)
+    score: float 
+    is_correct: bool 
+    timestamp: str

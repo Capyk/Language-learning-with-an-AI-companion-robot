@@ -36,14 +36,19 @@ def _ensure_client():
         logger.error(f"❌ Gemini Init Error: {e}")
         return False
 
-def clean_word_data(word: Dict) -> Dict:
+def clean_word_data(word: Dict, aggressive=True) -> Dict:
+    """
+    aggressive=True: usuwa ukośniki (do ćwiczeń) -> 'Besitzer'
+    aggressive=False: zostawia ukośniki (do fiszek) -> 'Besitzer/Besitzerin'
+    """
     clean = word.copy()
-    if '/' in str(clean.get('article', '')):
-        clean['article'] = str(clean['article']).split('/')[0].strip()
-    if '/' in str(clean.get('german_word', '')):
-        clean['german_word'] = str(clean['german_word']).split('/')[0].strip()
-    if '/' in str(clean.get('plural', '')):
-        clean['plural'] = str(clean['plural']).split('/')[0].strip()
+    raw_art = str(clean.get('article', ''))
+    raw_word = str(clean.get('german_word', ''))
+    
+    if aggressive:
+        if '/' in raw_art: clean['article'] = raw_art.split('/')[0].strip()
+        if '/' in raw_word: clean['german_word'] = raw_word.split('/')[0].strip()
+        if '/' in str(clean.get('plural', '')): clean['plural'] = str(clean['plural']).split('/')[0].strip()
     return clean
 
 # --- STATIC GENERATOR (Group A) ---
@@ -59,39 +64,49 @@ def generate_static_learning_path_A(words: List[Dict]) -> List[Dict]:
         "content": "First, study all 5 words carefully.", "visual_type": "intro", "interaction_type": "read_only"
     })
 
-    cleaned_words = [clean_word_data(w) for w in words]
-
-    for i, word in enumerate(cleaned_words):
-        img_url = f"/images/{word.get('image_id')}.jpg"
-        german = word.get('german_word', '')
-        article = word.get('article', '')
-        plural = word.get('plural', '')
-        english = word.get('english_gloss', '')
-        sentence = word.get('example_de', '')
+    for i, word in enumerate(words):
+        # FIX IV: Dla fiszki pełna nazwa, dla logiki skrócona
+        display_data = clean_word_data(word, aggressive=False)
+        logic_data = clean_word_data(word, aggressive=True)
         
+        img_url = f"/images/{word.get('image_id')}.jpg"
+        
+        # 1. Presentation
         presentation_screens.append({
-            "step_number": 0, "title": f"Learn: {english}",
-            "content": "Memorize the word, article and plural.", "visual_type": "word_card",
-            "german_word": german, "article": article, "plural": plural, "image_url": img_url,
-            "example_sentence": sentence, "interaction_type": "read_only"
+            "step_number": 0,
+            "title": f"Learn: {display_data.get('english_gloss')}",
+            "content": "Memorize the word, article and plural.",
+            "visual_type": "word_card",
+            "german_word": display_data.get('german_word'), # Shows 'Besitzer/Besitzerin'
+            "article": display_data.get('article'),
+            "plural": logic_data.get('plural'),
+            "image_url": img_url,
+            "example_sentence": word.get('example_de', ''), "interaction_type": "read_only"
         })
 
+        # 2. Practice Spelling (Use Clean Logic Data for validation)
         practice_screens.append({
-            "step_number": 0, "title": f"Practice: {english}",
-            "content": f"Type the missing word exactly:", "visual_type": "challenge",
-            "image_url": img_url, "question_context": sentence.replace(german, "_______"),
-            "german_word": german, "interaction_type": "fill_gap"
+            "step_number": 0,
+            "title": f"Practice: {display_data.get('english_gloss')}",
+            "content": f"Type the word (Case Sensitive!):", "visual_type": "challenge",
+            "image_url": img_url, 
+            "question_context": word.get('example_de', '').replace(logic_data.get('german_word'), "_______"),
+            "german_word": logic_data.get('german_word'), # Expects 'Besitzer'
+            "interaction_type": "fill_gap"
         })
 
+        # 3. Gender Check
         practice_screens.append({
-            "step_number": 0, "title": f"Gender Check: {german}",
+            "step_number": 0,
+            "title": f"Gender Check: {logic_data.get('german_word')}",
             "content": f"Select the correct article:", "visual_type": "challenge",
-            "question_context": f"___ {german}",
-            "german_word": f"{article} {german}", # Pełne słowo dla spójności
+            "question_context": f"___ {logic_data.get('german_word')}",
+            "german_word": f"{logic_data.get('article')} {logic_data.get('german_word')}", # "der Tisch"
             "interaction_type": "choice", "options": ["der", "die", "das"]
         })
 
     random.shuffle(practice_screens)
+    
     outro_screens.append({"step_number": 0, "title": "Ready!", "content": "Starting the final test now.", "visual_type": "intro", "interaction_type": "read_only"})
     
     full_path = intro_screens + presentation_screens + practice_screens + outro_screens
@@ -103,27 +118,35 @@ def generate_static_learning_path_A(words: List[Dict]) -> List[Dict]:
 async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[Dict]) -> List[Dict]:
     logger.info(">>> ATTEMPTING TO GENERATE ADAPTIVE AI PATH (GROUP B)")
     
-    if not _ensure_client():
-        return generate_static_learning_path_A(words)
+    if not _ensure_client(): return generate_static_learning_path_A(words)
 
     # 1. Analyze Data
     performance_summary = []
-    cleaned_words = [clean_word_data(w) for w in words]
-    incorrect_words_count = 0
-    word_to_image_map = {w['german_word']: w['image_id'] for w in cleaned_words}
+    # Mapa do naprawy obrazków
+    word_to_image_map = {}
+    
+    # Tworzymy czyste słowa do logiki, ale zachowujemy oryginały
+    cleaned_logic_words = [clean_word_data(w, aggressive=True) for w in words]
 
-    for word_data in cleaned_words:
-        german = word_data.get('german_word')
+    for w_orig, w_clean in zip(words, cleaned_logic_words):
+        # Mapujemy "tisch" -> img_id
+        word_to_image_map[w_clean['german_word'].lower()] = w_orig.get('image_id')
+        
+        german = w_clean.get('german_word')
         related_logs = [log for log in error_logs if german in str(log.get('word', ''))]
+        
+        # Check score (must be 1.0 to be correct)
         status = "CORRECT"
-        if related_logs and not all(log.get('is_correct') for log in related_logs):
+        if related_logs and not all(l.get('score', 0) == 1.0 for l in related_logs):
             status = "INCORRECT"
-            incorrect_words_count += 1
+        
         performance_summary.append(f"- {german}: {status}")
 
     performance_str = "\n".join(performance_summary)
+    
     words_metadata = []
-    for w in cleaned_words:
+    for w in words:
+        # Pass full data so AI can see 'Besitzer/Besitzerin'
         words_metadata.append({
             "german": w.get('german_word'), "english": w.get('english_gloss'),
             "article": w.get('article'), "plural": w.get('plural'),
@@ -139,36 +162,21 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
     PERFORMANCE: {performance_str}
 
     ### INSTRUCTIONS
-    Generate a JSON array of 'LearningScreen' objects.
+    Generate 'LearningScreen' objects.
 
-    **LOGIC:**
-    
+    **STRATEGY:**
     1. **IF STATUS IS 'CORRECT':**
-       - Generate ONLY 1 screen: 'word_card'.
-       - Content: "You already know this! Quick review."
+       - Generate 1 screen: 'word_card'. Content: "Quick review."
 
     2. **IF STATUS IS 'INCORRECT' (Reinforcement needed):**
-       - Generate 3 screens for this word:
-       
-       * **Screen A:** 'word_card'. 
-         - ADD 'mnemonics': Create a vivid memory hook using colors (Blue=Der, Red=Die, Green=Das).
+       - Generate 3 screens:
+       * **Screen A:** 'word_card'. Add 'mnemonics'.
+       * **Screen B:** 'challenge' (fill_gap). Content: "Practice spelling.". Context: Sentence with gap. 'german_word' = Noun.
+       * **Screen C:** 'challenge' (choice). Content: "Check article.". Context: "___ Noun". 
+         **CRITICAL (Fix III):** Set 'german_word' to the FULL PHRASE (e.g. "der Tisch"), NOT just "der". The system needs the noun to find the image!
 
-       * **Screen B:** 'challenge' (fill_gap).
-         - Content: "Practice the spelling."
-         - Question Context: Use the example sentence, replace word with '_______'.
-         - 'german_word': The noun itself (e.g. "Tisch").
-
-       * **Screen C:** 'challenge' (choice).
-         - Content: "Check the article."
-         - Question Context: "___ Noun"
-         - 'german_word': Full noun with article (e.g. "der Tisch").
-         - Options: ["der", "die", "das"].
-
-    3. **FINAL STEP:**
-       - Generate 3 distinct text screens to conclude:
-       * **A:** 'story' (Short funny story with tricky words).
-       * **B:** 'dialogue' (Short conversation using the words).
-       * **C:** 'fun_fact' (Interesting cultural fact about one word).
+    3. **FINAL STEPS:**
+       - Generate 3 distinct text screens: 'story', 'dialogue', 'fun_fact'.
 
     ### JSON FORMAT
     Return ONLY raw JSON.
@@ -190,17 +198,13 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            logger.info(f"Sending request to Gemini (Model: {TARGET_MODEL}, Attempt {attempt + 1})...")
-            
+            logger.info(f"Sending request to Gemini (Model: {TARGET_MODEL})...")
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
                 lambda: client.models.generate_content(
                     model=TARGET_MODEL,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.4
-                    ),
+                    config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.4),
                     contents=[prompt]
                 )
             )
@@ -208,39 +212,41 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
             raw_text = response.text.strip()
             if raw_text.startswith("```json"): raw_text = raw_text[7:]
             if raw_text.endswith("```"): raw_text = raw_text[:-3]
-            
             generated_path = json.loads(raw_text)
             
-            # --- SAFETY LOCK ---
+            # --- SAFETY LOCK (Fix Images III) ---
             for screen in generated_path:
-                tgt_word = screen.get('german_word')
-                # Safety for choice: if AI put just "der", find the noun
-                if tgt_word in ["der", "die", "das"]:
-                     for k, v in word_to_image_map.items():
-                        if k in str(screen.get('question_context', '')):
-                            tgt_word = k
-                            break
-                if tgt_word:
-                    # Case insensitive match
-                    img_id = word_to_image_map.get(tgt_word)
-                    if not img_id:
-                        for k, v in word_to_image_map.items():
-                            if k.lower() == tgt_word.lower(): img_id = v; break
-                    if img_id: screen['image_url'] = f"/images/{img_id}.jpg"
-            # -------------------
+                tgt = screen.get('german_word', '')
+                if not tgt: continue
+                
+                # Jeśli mamy "der Tisch", wyciągamy "tisch" do szukania ID
+                # Usuwamy rodzajniki
+                clean_tgt = tgt.replace("der ", "").replace("die ", "").replace("das ", "").strip().lower()
+                
+                found_id = None
+                if clean_tgt in word_to_image_map:
+                    found_id = word_to_image_map[clean_tgt]
+                else:
+                    # Fuzzy search
+                    for k, v in word_to_image_map.items():
+                        if k in clean_tgt or clean_tgt in k:
+                            found_id = v; break
+                
+                if found_id: 
+                    screen['image_url'] = f"/images/{found_id}.jpg"
+            # ------------------------------------
 
             final_path = [
-                {"step_number": 0, "title": "AI ADAPTIVE PLAN", "content": f"I focused on your {incorrect_words_count} mistakes.", "visual_type": "intro", "interaction_type": "read_only"}
+                {"step_number": 0, "title": "AI Plan", "content": f"Focusing on {incorrect_words_count} items.", "visual_type": "intro", "interaction_type": "read_only"}
             ] + generated_path + [
-                {"step_number": 0, "title": "AI Session Complete", "content": "Ready for final test.", "visual_type": "intro", "interaction_type": "read_only"}
+                {"step_number": 0, "title": "Ready", "content": "Starting Final Test.", "visual_type": "intro", "interaction_type": "read_only"}
             ]
 
             for i, screen in enumerate(final_path): screen['step_number'] = i + 1
-            logger.info("✅ Adaptive path generated successfully.")
             return final_path
 
         except Exception as e:
-            logger.error(f"❌ LLM ERROR (Attempt {attempt+1}): {e}")
+            logger.error(f"❌ LLM ERROR: {e}")
             time.sleep(2)
 
     return generate_static_learning_path_A(words)
