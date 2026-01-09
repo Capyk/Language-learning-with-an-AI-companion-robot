@@ -1,13 +1,10 @@
 import React from 'react';
-import ImageLabeling from './components/ImageLabeling';
+import ExperimentContainer from './features/experiment/ExperimentContainer';
 
-const App: React.FC = () => {
+function App() {
   return (
-    <div>
-      {/* <h1>Language Learning with AI</h1> */}
-      <ImageLabeling />
-    </div>
+    <ExperimentContainer />
   );
-};
+}
 
 export default App;
