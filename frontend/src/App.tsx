@@ -1,4 +1,3 @@
-import React from 'react';
 import ExperimentContainer from './features/experiment/ExperimentContainer';
 
 function App() {

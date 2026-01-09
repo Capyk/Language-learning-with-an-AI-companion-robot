@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { API_BASE } from '../../../config/api';
 import { Icon } from '../../../components/ui/Icons';
 import { FeedbackCard } from './FeedbackCard';
