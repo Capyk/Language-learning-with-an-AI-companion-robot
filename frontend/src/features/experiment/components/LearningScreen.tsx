@@ -6,13 +6,73 @@ import { Icon } from '../../../components/ui/Icons';
 interface LearningScreenProps {
   data: any;
   onNext: () => void;
+  language: 'de' | 'en'; // <--- NOWY PROP
 }
 
-export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
+// Słownik tłumaczeń dla elementów UI
+const UI_TEXTS = {
+    de: {
+        step: "Schritt",
+        ai_tip: "KI-Tipp",
+        german_word: "Deutsches Wort",
+        plural: "Plural:",
+        check_answer: "ANTWORT PRÜFEN",
+        continue: "WEITER",
+        correct: "Richtig! Gut gemacht.",
+        incorrect: "Falsch.",
+        correct_answer_is: "Die richtige Antwort ist:",
+        placeholder: "Tippen...",
+        module_start: "Modul Start",
+        ready: "Bereit!"
+    },
+    en: {
+        step: "Step",
+        ai_tip: "AI Tip",
+        german_word: "German Word",
+        plural: "Plural:",
+        check_answer: "CHECK ANSWER",
+        continue: "CONTINUE",
+        correct: "Correct! Well done.",
+        incorrect: "Incorrect.",
+        correct_answer_is: "The correct answer is:",
+        placeholder: "Type here...",
+        module_start: "Module Start",
+        ready: "Ready!"
+    }
+};
+
+export const LearningScreen = ({ data, onNext, language }: LearningScreenProps) => {
   const [localInput, setLocalInput] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'checked'>('idle');
   const [isCorrect, setIsCorrect] = useState(false);
+
+  // Wybór tekstów na podstawie języka
+  const t = UI_TEXTS[language]; 
+
+  // --- Funkcja tłumacząca treści z Backendu "w locie" ---
+  // Backend wysyła treści po angielsku. Jeśli język to 'de', musimy je przetłumaczyć.
+  const translateBackendContent = (text: string) => {
+      if (!text) return text;
+      if (language === 'en') return text; // Jeśli angielski, zwracamy oryginał
+
+      // Mapowanie fraz z backendu na niemiecki
+      if (text.includes("First, study all")) return "Lerne zuerst diese 5 Wörter sorgfältig.";
+      if (text.includes("Memorize the word")) return "Merke dir Wort, Artikel und Plural.";
+      if (text.includes("Type the word (Case Sensitive!)")) return "Schreibe das Wort (Groß-/Kleinschreibung!).";
+      if (text.includes("Select the correct article")) return "Wähle den richtigen Artikel:";
+      if (text.includes("Starting the final test now")) return "Der Abschlusstest beginnt jetzt.";
+      if (text.includes("Module Start")) return "Modul Start";
+      if (text.includes("Ready!")) return "Bereit!";
+      
+      // Tłumaczenie nagłówków (np. "Learn: Dog")
+      if (text.startsWith("Learn:")) return text.replace("Learn:", "Lernen:");
+      if (text.startsWith("Practice:")) return text.replace("Practice:", "Üben:");
+      if (text.startsWith("Gender Check:")) return text.replace("Gender Check:", "Artikel-Check:");
+      if (text.startsWith("AI Plan")) return text.replace("AI Plan", "KI-Plan").replace("Focusing on", "Fokus auf").replace("items", "Elemente");
+      
+      return text;
+  };
 
   useEffect(() => {
     setLocalInput(""); setSelectedOption(null); setStatus('idle'); setIsCorrect(false);
@@ -43,8 +103,12 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
 
   const renderContextWithGap = () => {
     let context = data.question_context || "_______";
-    if (!context.includes('_______')) context += " _______";
-    const parts = context.split('_______');
+    // Tłumaczenie kontekstu (jeśli to instrukcja)
+    let translatedContext = translateBackendContent(context);
+    
+    if (!translatedContext.includes('_______')) translatedContext += " _______";
+    const parts = translatedContext.split('_______');
+    
     return (
         <div className="flex flex-wrap items-center justify-center gap-2 text-2xl font-mono bg-white p-6 rounded-2xl shadow-sm border border-slate-200 leading-relaxed text-slate-800">
             <span>{formatText(parts[0])}</span>
@@ -52,9 +116,7 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
                 type="text" 
                 value={localInput} 
                 onChange={(e) => setLocalInput(e.target.value)} 
-                // --- POPRAWIONE STYLE INPUTA ---
                 className="w-48 px-2 py-1 text-center border-b-4 border-indigo-300 bg-indigo-50 outline-none font-bold text-indigo-900 placeholder-indigo-300 focus:border-indigo-600 focus:bg-white transition-all rounded-t-lg" 
-                // -------------------------------
                 disabled={status === 'checked'} 
                 autoFocus 
             />
@@ -72,11 +134,11 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
       
       <div className="bg-indigo-50 p-6 flex justify-between items-center border-b border-indigo-100 shrink-0">
         <span className="bg-white text-indigo-700 px-4 py-2 rounded-full text-sm font-black uppercase tracking-widest shadow-sm">
-          Step {data.step_number}
+          {t.step} {data.step_number}
         </span>
         {data.mnemonics && (
           <span className="flex items-center gap-2 text-amber-600 bg-amber-100 px-4 py-2 rounded-full text-xs font-black uppercase border border-amber-200">
-            <Icon.Lightbulb size={16} /> AI Tip
+            <Icon.Lightbulb size={16} /> {t.ai_tip}
           </span>
         )}
       </div>
@@ -99,21 +161,22 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
 
           <div className={`flex flex-col justify-center p-12 ${showImage ? '' : 'max-w-4xl mx-auto w-full items-center text-center'}`}>
               <div className="mb-8 w-full">
-                  <h1 className="text-4xl font-black text-slate-800 mb-4 leading-tight">{formatText(data.title)}</h1>
-                  <p className="text-xl text-slate-500 font-medium">{formatText(data.content)}</p>
+                  {/* --- TYTUŁ I OPIS (PRZETŁUMACZONE) --- */}
+                  <h1 className="text-4xl font-black text-slate-800 mb-4 leading-tight">{formatText(translateBackendContent(data.title))}</h1>
+                  <p className="text-xl text-slate-500 font-medium">{formatText(translateBackendContent(data.content))}</p>
               </div>
 
               <div className="w-full space-y-8">
                   {/* WORD CARD */}
                   {data.visual_type === 'word_card' && (
                     <div className={`p-8 rounded-[2rem] border-4 text-center transition-colors duration-500 w-full ${getArticleColor(data.article || '')}`}>
-                      <div className="text-sm font-black uppercase opacity-60 mb-2 tracking-widest">German Word</div>
+                      <div className="text-sm font-black uppercase opacity-60 mb-2 tracking-widest">{t.german_word}</div>
                       <div className="text-6xl font-black mb-2 tracking-tight break-words">
                         <span className="opacity-60 mr-4 text-4xl align-middle">{data.article}</span>
                         {data.german_word}
                       </div>
                       {data.plural && (
-                         <div className="text-xl font-bold text-slate-600 mb-4 bg-white/50 inline-block px-4 py-1 rounded-lg">Plural: {data.plural}</div>
+                         <div className="text-xl font-bold text-slate-600 mb-4 bg-white/50 inline-block px-4 py-1 rounded-lg">{t.plural} {data.plural}</div>
                       )}
                       <div className="text-2xl italic opacity-90 font-serif border-t border-black/10 pt-4 mt-2">"{formatText(data.example_sentence)}"</div>
                     </div>
@@ -131,7 +194,7 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
                   {/* TEXT CONTENT */}
                   {(['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type)) && (
                     <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 font-serif text-2xl text-slate-700 leading-loose w-full whitespace-pre-wrap">
-                      {formatText(data.example_sentence || data.content)}
+                      {formatText(translateBackendContent(data.example_sentence || data.content))}
                     </div>
                   )}
 
@@ -158,7 +221,7 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
                   {/* CHOICE */}
                   {data.interaction_type === 'choice' && data.options && (
                       <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 w-full">
-                            <p className="text-3xl font-bold text-slate-700 mb-8 text-center">{formatText(data.question_context)}</p>
+                            <p className="text-3xl font-bold text-slate-700 mb-8 text-center">{formatText(translateBackendContent(data.question_context))}</p>
                             <div className="flex justify-center gap-4">
                               {data.options.map((opt: string) => (
                                   <button
@@ -185,13 +248,13 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
                       <div className={`p-6 rounded-2xl text-center font-bold text-xl animate-in fade-in zoom-in duration-300 w-full ${isCorrect ? 'bg-green-100 text-green-700 border-2 border-green-200' : 'bg-red-100 text-red-700 border-2 border-red-200'}`}>
                           {isCorrect ? (
                               <div className="flex items-center justify-center gap-3">
-                                  <Icon.CheckCircle size={32} /> Correct! Well done.
+                                  <Icon.CheckCircle size={32} /> {t.correct}
                               </div>
                           ) : (
                               <div className="flex flex-col items-center gap-2">
-                                  <div className="flex items-center gap-2"><Icon.XCircle size={32} /> Incorrect.</div>
+                                  <div className="flex items-center gap-2"><Icon.XCircle size={32} /> {t.incorrect}</div>
                                   <div className="text-slate-800 font-normal text-lg">
-                                        The correct answer is: <span className="font-black bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">{data.german_word}</span>
+                                        {t.correct_answer_is} <span className="font-black bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">{data.german_word}</span>
                                   </div>
                               </div>
                           )}
@@ -213,7 +276,7 @@ export const LearningScreen = ({ data, onNext }: LearningScreenProps) => {
                         : 'bg-slate-800 text-white hover:bg-slate-900'
                     }`}
                   >
-                    {status === 'idle' && data.interaction_type !== 'read_only' ? 'CHECK ANSWER' : 'CONTINUE'} 
+                    {status === 'idle' && data.interaction_type !== 'read_only' ? t.check_answer : t.continue} 
                     <Icon.ArrowRight size={32} className="group-hover:translate-x-2 transition-transform"/>
                   </button>
 

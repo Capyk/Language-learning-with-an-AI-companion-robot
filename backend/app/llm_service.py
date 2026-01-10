@@ -122,23 +122,26 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
 
     # 1. Analyze Data
     performance_summary = []
-    # Mapa do naprawy obrazków
     word_to_image_map = {}
     
-    # Tworzymy czyste słowa do logiki, ale zachowujemy oryginały
+    # --- FIX: Inicjalizacja licznika ---
+    incorrect_words_count = 0
+    # -----------------------------------
+    
     cleaned_logic_words = [clean_word_data(w, aggressive=True) for w in words]
 
     for w_orig, w_clean in zip(words, cleaned_logic_words):
-        # Mapujemy "tisch" -> img_id
         word_to_image_map[w_clean['german_word'].lower()] = w_orig.get('image_id')
         
         german = w_clean.get('german_word')
         related_logs = [log for log in error_logs if german in str(log.get('word', ''))]
         
-        # Check score (must be 1.0 to be correct)
         status = "CORRECT"
         if related_logs and not all(l.get('score', 0) == 1.0 for l in related_logs):
             status = "INCORRECT"
+            # --- FIX: Zliczanie błędów ---
+            incorrect_words_count += 1
+            # -----------------------------
         
         performance_summary.append(f"- {german}: {status}")
 
@@ -146,7 +149,6 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
     
     words_metadata = []
     for w in words:
-        # Pass full data so AI can see 'Besitzer/Besitzerin'
         words_metadata.append({
             "german": w.get('german_word'), "english": w.get('english_gloss'),
             "article": w.get('article'), "plural": w.get('plural'),
@@ -173,7 +175,7 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
        * **Screen A:** 'word_card'. Add 'mnemonics'.
        * **Screen B:** 'challenge' (fill_gap). Content: "Practice spelling.". Context: Sentence with gap. 'german_word' = Noun.
        * **Screen C:** 'challenge' (choice). Content: "Check article.". Context: "___ Noun". 
-         **CRITICAL (Fix III):** Set 'german_word' to the FULL PHRASE (e.g. "der Tisch"), NOT just "der". The system needs the noun to find the image!
+         **CRITICAL:** Set 'german_word' to the FULL PHRASE (e.g. "der Tisch"), NOT just "der".
 
     3. **FINAL STEPS:**
        - Generate 3 distinct text screens: 'story', 'dialogue', 'fun_fact'.
@@ -214,28 +216,26 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
             if raw_text.endswith("```"): raw_text = raw_text[:-3]
             generated_path = json.loads(raw_text)
             
-            # --- SAFETY LOCK (Fix Images III) ---
+            # --- Mapowanie obrazków ---
             for screen in generated_path:
                 tgt = screen.get('german_word', '')
                 if not tgt: continue
                 
-                # Jeśli mamy "der Tisch", wyciągamy "tisch" do szukania ID
-                # Usuwamy rodzajniki
                 clean_tgt = tgt.replace("der ", "").replace("die ", "").replace("das ", "").strip().lower()
                 
                 found_id = None
                 if clean_tgt in word_to_image_map:
                     found_id = word_to_image_map[clean_tgt]
                 else:
-                    # Fuzzy search
                     for k, v in word_to_image_map.items():
                         if k in clean_tgt or clean_tgt in k:
                             found_id = v; break
                 
                 if found_id: 
                     screen['image_url'] = f"/images/{found_id}.jpg"
-            # ------------------------------------
+            # --------------------------
 
+            # TERAZ ZMIENNA JEST ZDEFINIOWANA
             final_path = [
                 {"step_number": 0, "title": "AI Plan", "content": f"Focusing on {incorrect_words_count} items.", "visual_type": "intro", "interaction_type": "read_only"}
             ] + generated_path + [

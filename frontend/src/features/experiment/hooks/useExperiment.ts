@@ -6,27 +6,29 @@ export const useExperiment = () => {
   const [currentTrial, setCurrentTrial] = useState<any>(null);
   const [feedback, setFeedback] = useState<any>(null);
   const [questData, setQuestData] = useState<any>(null);
+  const [nudge, setNudge] = useState<any>(null);
   
+  // NOWE: Globalny stan języka
+  const [language, setLanguage] = useState<'de' | 'en'>('de');
+
   const [view, setView] = useState<'intro' | 'experiment' | 'questionnaire' | 'demographics' | 'done'>('intro');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Pobieranie kolejnego zadania
   const fetchNextTrial = useCallback(async (sessionId: string) => {
     setIsLoading(true);
-    setFeedback(null); // WAŻNE: Reset feedbacku przy pobieraniu nowego zadania
+    setFeedback(null);
+    setNudge(null);
     
     try {
       const resp = await fetch(`${API_BASE}/experiment/trial/${sessionId}`);
       const data = await resp.json();
       
-      console.log("Fetched trial data:", data); // Debugowanie w konsoli
+      console.log("Fetched trial data:", data);
 
       if (data.status === "completed") {
         setView('questionnaire');
       } else if (data.status === "transition") {
-        // Jeśli backend mówi "transition", czekamy chwilę i pytamy ponownie
-        // (Daje to czas backendowi na przetworzenie zmiany fazy)
         console.log("Transitioning phases...");
         setTimeout(() => {
             fetchNextTrial(sessionId);
@@ -42,7 +44,6 @@ export const useExperiment = () => {
     }
   }, []);
 
-  // Rozpoczęcie eksperymentu
   const startExperiment = async (condition: 'A' | 'B') => {
     setIsLoading(true);
     setError(null);
@@ -62,7 +63,6 @@ export const useExperiment = () => {
     }
   };
 
-  // Wysyłanie odpowiedzi
   const submitAnswer = async (userAnswer: string) => {
     setIsLoading(true);
     setError(null);
@@ -79,12 +79,8 @@ export const useExperiment = () => {
       });
       const data = await resp.json();
       
-      console.log("Submit response:", data); // Debugowanie
+      console.log("Submit response:", data);
 
-      // LOGIKA PRZEJŚCIA:
-      // 1. Backend każe iść dalej (move_next: true)
-      // 2. LUB Backend zwraca status transition
-      // 3. LUB Jesteśmy w fazie testowej (pre/post) i nie ma feedbacku (zabezpieczenie przed utknięciem)
       const shouldMoveNext = 
         data.move_next || 
         data.status === "transition" ||
@@ -93,8 +89,12 @@ export const useExperiment = () => {
       if (shouldMoveNext) {
         fetchNextTrial(session.session_id);
       } else {
-        // Pokaż feedback tylko jeśli backend go zwrócił i nie każe iść dalej
-        setFeedback(data);
+        if (data.feedback || data.score !== undefined) {
+            setFeedback(data);
+        }
+        if (data.nudge) {
+            setNudge(data.nudge);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -103,7 +103,6 @@ export const useExperiment = () => {
     }
   };
 
-  // Przeskakiwanie faz (dla dewelopera/testów)
   const skipToPhase = async (phase: string) => {
     if (!session) return;
     setIsLoading(true);
@@ -120,16 +119,11 @@ export const useExperiment = () => {
     }
   };
 
-  // Wewnątrz useExperiment.ts
-
-  // ZASTĄP STARE handleQuestSubmit i handleFinalSubmit TYM KODEM:
-
   const handleQuestSubmit = (data: any) => {
     setQuestData(data);
     setView('demographics');
   };
 
-// Krok 2: Wyślij wszystko do backendu
   const handleFinalSubmit = async (formData: any) => {
     setIsLoading(true);
     try {
@@ -138,8 +132,8 @@ export const useExperiment = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 session_id: session.session_id,
-                ...formData,           // Dane demograficzne (age, gender...)
-                questionnaire: questData // Dane z poprzedniego kroku
+                ...formData,
+                questionnaire: questData
             })
         });
         setView('done');
@@ -151,14 +145,15 @@ export const useExperiment = () => {
   };
 
   return {
-    state: { session, currentTrial, feedback, isLoading, error, view },
+    state: { session, currentTrial, feedback, nudge, isLoading, error, view, language }, // Dodano language
     actions: { 
         startExperiment, 
         submitAnswer, 
         fetchNextTrial, 
         skipToPhase, 
         handleQuestSubmit, 
-        handleFinalSubmit 
+        handleFinalSubmit,
+        setLanguage // Dodano setLanguage
     }
   };
 };
