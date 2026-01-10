@@ -28,6 +28,7 @@ interface TutorPanelProps {
 
 // Usunięto onClose z destrukturyzacji propsów
 export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, language, onLanguageChange }: TutorPanelProps) => {
+    const MAX_PROMPTS = 3; // Maximum number of user prompts per session
 
     const [messages, setMessages] = useState<TutorMessage[]>([
         {
@@ -40,6 +41,7 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, la
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [promptCount, setPromptCount] = useState(0); // Track number of user prompts
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -68,10 +70,16 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, la
     const sendMessage = async (text: string) => {
         if (!text.trim()) return;
 
+        // Check if prompt limit is reached
+        if (promptCount >= MAX_PROMPTS) {
+            return;
+        }
+
         const userMsg: TutorMessage = { id: `user-${Date.now()}`, sender: 'user', text };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
+        setPromptCount(prev => prev + 1); // Increment prompt counter
 
         try {
             const response = await fetch(`${API_BASE}/experiment/tutor/ask`, {
@@ -178,13 +186,32 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, la
 
             {/* Input Area */}
             <div className="p-4 bg-white border-t border-slate-100">
+                {/* Prompt Counter and Limit Warning */}
+                {promptCount < MAX_PROMPTS ? (
+                    <div className="mb-2 text-center">
+                        <span className="text-xs font-bold text-slate-500">
+                            {language === 'de'
+                                ? `${MAX_PROMPTS - promptCount} von ${MAX_PROMPTS} Fragen übrig`
+                                : `${MAX_PROMPTS - promptCount} of ${MAX_PROMPTS} questions remaining`}
+                        </span>
+                    </div>
+                ) : (
+                    <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                        <p className="text-sm font-bold text-amber-800">
+                            {language === 'de'
+                                ? '⚠️ Du hast dein Limit von 3 Fragen erreicht.'
+                                : '⚠️ You have reached your limit of 3 questions.'}
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex gap-2 overflow-x-auto pb-2 mb-2 no-scrollbar">
                     {QuickChips.map(chip => (
                         <button
                             key={chip}
                             onClick={() => sendMessage(chip)}
-                            disabled={isLoading}
-                            className="whitespace-nowrap px-3 py-1 bg-slate-100 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 border border-transparent rounded-full text-xs font-bold text-slate-500 transition-all active:scale-95 shrink-0"
+                            disabled={isLoading || promptCount >= MAX_PROMPTS}
+                            className="whitespace-nowrap px-3 py-1 bg-slate-100 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 border border-transparent rounded-full text-xs font-bold text-slate-500 transition-all active:scale-95 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {chip}
                         </button>
@@ -195,15 +222,17 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, la
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage(input)}
-                        placeholder={language === 'de' ? "Frag mich etwas..." : "Ask me something..."}
-                        className="flex-1 bg-slate-50 border-slate-200 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-slate-800"
-                        disabled={isLoading}
+                        onKeyPress={(e) => e.key === 'Enter' && !isLoading && promptCount < MAX_PROMPTS && sendMessage(input)}
+                        placeholder={promptCount >= MAX_PROMPTS
+                            ? (language === 'de' ? 'Limit erreicht' : 'Limit reached')
+                            : (language === 'de' ? 'Frag mich etwas...' : 'Ask me something...')}
+                        className="flex-1 bg-slate-50 border-slate-200 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isLoading || promptCount >= MAX_PROMPTS}
                     />
                     <button
                         onClick={() => sendMessage(input)}
-                        disabled={isLoading || !input.trim()}
-                        className="p-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center"
+                        disabled={isLoading || !input.trim() || promptCount >= MAX_PROMPTS}
+                        className="p-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center disabled:cursor-not-allowed"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
                     </button>

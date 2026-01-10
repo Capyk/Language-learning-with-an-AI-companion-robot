@@ -218,11 +218,16 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                             <Icon.Sparkles className="text-purple-600" size={24} />
                             <h3 className="font-bold text-xl text-slate-800">Meet Your AI Tutor</h3>
                         </div>
-                        <p className="text-slate-600 leading-relaxed">
+                        <p className="text-slate-600 leading-relaxed mb-3">
                             During the learning phase, you will see an <strong>AI Tutor panel</strong> on the right.
                             You can ask questions, request hints, or get explanations for your mistakes.
-                            <br /><span className="italic text-purple-700 font-medium mt-1 block">Feel free to interact with it!</span>
                         </p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">
+                            <p className="text-amber-800 font-bold text-sm flex items-center gap-2">
+                                <Icon.Info size={16} />
+                                <span>Important: You have a limit of <strong>3 questions</strong> per session. Use them wisely!</span>
+                            </p>
+                        </div>
                     </div>
                 )}
 
