@@ -32,7 +32,7 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
     };
 
     // Scroll na górę przy załadowaniu
-    useEffect(() => { window.scrollTo(0,0); }, []);
+    useEffect(() => { window.scrollTo(0, 0); }, []);
 
     // --- WIDOK 1: FORMULARZ ZGODY ---
     if (step === 'consent') {
@@ -45,7 +45,7 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                     {/* SHORT VERSION */}
                     <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 text-lg space-y-6">
                         <div>
-                            <h3 className="font-bold text-xl mb-2 flex items-center gap-2"><Icon.Info size={24} className="text-blue-600"/> Purpose</h3>
+                            <h3 className="font-bold text-xl mb-2 flex items-center gap-2"><Icon.Info size={24} className="text-blue-600" /> Purpose</h3>
                             <p className="text-slate-600">This study evaluates a web-based German vocabulary learning system with different types of feedback.</p>
                         </div>
 
@@ -91,8 +91,8 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
 
                     {/* FULL VERSION TOGGLE - CAŁA SZEROKOŚĆ */}
                     <div className="mb-2">
-                        <button 
-                            onClick={() => setShowFullText(!showFullText)} 
+                        <button
+                            onClick={() => setShowFullText(!showFullText)}
                             className="w-full py-4 rounded-2xl bg-indigo-50 text-indigo-700 border-2 border-indigo-100 font-bold hover:bg-indigo-100 hover:border-indigo-300 transition-all text-sm uppercase tracking-wide flex items-center justify-center gap-3 shadow-sm"
                         >
                             <Icon.Info size={20} />
@@ -104,10 +104,10 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                     {showFullText && (
                         <div className="bg-white p-6 rounded-3xl border-2 border-indigo-50 text-sm text-slate-600 h-96 overflow-y-auto shadow-inner leading-relaxed animate-in fade-in slide-in-from-top-4">
                             <h2 className="font-black text-lg text-slate-800 mb-2">Participant Information and Informed Consent (Full Version)</h2>
-                            
+
                             <p className="mb-2"><strong>Study Title:</strong> Human–AI Interaction in Vocabulary Learning</p>
                             <p className="mb-4"><strong>Institution:</strong> Technical University of Munich (TUM), Course: Human–AI Interaction</p>
-                            
+
                             <h3 className="font-bold text-slate-800 mt-4">1. Purpose of the Study</h3>
                             <p className="mb-2">You are invited to participate in a research study conducted as part of a university course project. The purpose of this study is to investigate how different types of feedback in a web-based vocabulary learning system influence learner engagement and short-term learning outcomes. Specifically, the study compares static (non-adaptive) feedback and adaptive, AI-generated feedback.</p>
 
@@ -165,24 +165,24 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
 
                     {/* ACTION BUTTONS */}
                     <div className="grid grid-cols-2 gap-6 mt-4">
-                        <button 
+                        <button
                             disabled={!canProceed}
-                            onClick={() => handleConsentSubmit('A')} 
+                            onClick={() => handleConsentSubmit('A')}
                             className="py-5 bg-blue-600 text-white rounded-2xl font-bold text-xl hover:bg-blue-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
                         >
                             {canProceed ? "Proceed (Group A)" : "Complete Consent"}
                         </button>
-                        <button 
+                        <button
                             disabled={!canProceed}
-                            onClick={() => handleConsentSubmit('B')} 
+                            onClick={() => handleConsentSubmit('B')}
                             className="py-5 bg-purple-600 text-white rounded-2xl font-bold text-xl hover:bg-purple-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
                         >
                             {canProceed ? "Proceed (Group B)" : "Complete Consent"}
                         </button>
                     </div>
-                    
+
                     {!canProceed && (
-                         <p className="text-center text-red-500 font-bold text-sm">Please confirm your age and agreement to continue.</p>
+                        <p className="text-center text-red-500 font-bold text-sm">Please confirm your age and agreement to continue.</p>
                     )}
                 </div>
             </div>
@@ -193,24 +193,38 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
     return (
         <div className="w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl p-12 border-8 border-white mx-auto text-slate-800 animate-in fade-in slide-in-from-right-8 duration-500 my-8">
             <h1 className="text-4xl font-black text-slate-900 mb-6 text-center">Study Instructions</h1>
-            
+
             <div className="space-y-8">
                 {/* 1. Experiment Flow */}
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
                     <h3 className="font-bold text-xl mb-4 text-slate-700">Experiment Flow</h3>
                     <div className="flex items-center justify-between text-sm font-bold text-slate-500 uppercase tracking-widest px-4">
                         <span>1. Pre-Test</span>
-                        <Icon.ArrowRight className="text-slate-300"/>
+                        <Icon.ArrowRight className="text-slate-300" />
                         <span className="text-indigo-600">2. Learning Phase</span>
-                        <Icon.ArrowRight className="text-slate-300"/>
+                        <Icon.ArrowRight className="text-slate-300" />
                         <span>3. Post-Test</span>
                     </div>
                     <p className="mt-4 text-slate-600 text-lg">
-                        {selectedGroup === 'A' 
+                        {selectedGroup === 'A'
                             ? "In the learning phase, you will follow a structured path to study the vocabulary items with standard exercises."
                             : "In the learning phase, an AI tutor will analyze your mistakes and generate personalized exercises to help you improve."}
                     </p>
                 </div>
+
+                {selectedGroup === 'B' && (
+                    <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="flex items-center gap-3 mb-3">
+                            <Icon.Sparkles className="text-purple-600" size={24} />
+                            <h3 className="font-bold text-xl text-slate-800">Meet Your AI Tutor</h3>
+                        </div>
+                        <p className="text-slate-600 leading-relaxed">
+                            During the learning phase, you will see an <strong>AI Tutor panel</strong> on the right.
+                            You can ask questions, request hints, or get explanations for your mistakes.
+                            <br /><span className="italic text-purple-700 font-medium mt-1 block">Feel free to interact with it!</span>
+                        </p>
+                    </div>
+                )}
 
                 {/* 2. Critical Rules */}
                 <div className="grid md:grid-cols-2 gap-6">
@@ -222,7 +236,7 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                         </div>
                         <p className="text-slate-600 mb-4">German nouns are always capitalized. Pay attention to your spelling.</p>
                         <div className="bg-white p-3 rounded-xl border border-yellow-200 flex justify-around text-lg">
-                            <span className="text-green-600 font-bold flex items-center gap-1"><Icon.CheckCircle size={18}/> Tisch</span>
+                            <span className="text-green-600 font-bold flex items-center gap-1"><Icon.CheckCircle size={18} /> Tisch</span>
                             <span className="text-red-400 line-through decoration-2 decoration-red-400 opacity-60">tisch</span>
                         </div>
                     </div>
@@ -243,8 +257,8 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                 </div>
 
                 {/* Start Button */}
-                <button 
-                    onClick={() => selectedGroup && onStart(selectedGroup)} 
+                <button
+                    onClick={() => selectedGroup && onStart(selectedGroup)}
                     className="w-full py-6 bg-slate-900 text-white rounded-2xl font-black text-2xl hover:bg-black shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 group mt-4"
                 >
                     BEGIN EXPERIMENT

@@ -63,7 +63,7 @@ const ExperimentContainer: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col items-center gap-6 w-full max-w-[90rem] px-4 py-8">
+        <div className="flex flex-col items-center gap-4 w-full max-w-[90rem] px-4 py-2">
             {error && (
                 <div className="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm px-6 py-4 bg-red-600 text-white text-xs font-black rounded-full shadow-2xl flex items-center justify-center gap-2 z-[100] animate-bounce">
                     <Icon.Info size={20} /> {error}
@@ -72,7 +72,7 @@ const ExperimentContainer: React.FC = () => {
 
             {currentTrial?.task_type === 'learning_step' ? (
 
-                <div className="flex flex-col xl:flex-row gap-6 w-full justify-center items-start">
+                <div className="flex flex-col lg:flex-row gap-6 w-full justify-center items-start">
 
                     {/* LEWA STRONA: Ekran Zadania */}
                     <div className="flex-1 w-full min-w-0 transition-all duration-500">
@@ -81,12 +81,15 @@ const ExperimentContainer: React.FC = () => {
                             onNext={() => actions.submitAnswer('next_step')}
                             // --- POPRAWKA 2: Przekazanie języka do LearningScreen ---
                             language={language}
+                            // LANGUAGE SWITCHER FOR STATIC GROUP (Only in Learning Phase, Condition A)
+                            showLanguageSwitcher={currentTrial?.phase === 'learning' && !showTutor}
+                            onLanguageChange={() => actions.setLanguage(prev => prev === 'de' ? 'en' : 'de')}
                         />
                     </div>
 
                     {/* PRAWA STRONA: Panel Tutora */}
                     {showTutor && (
-                        <div className="w-full xl:w-[400px] shrink-0 animate-in slide-in-from-right-10 duration-700">
+                        <div className="w-full lg:w-[350px] shrink-0 animate-in slide-in-from-right-10 duration-700">
                             <TutorPanel
                                 isVisible={true}
                                 currentTaskContext={taskContext}

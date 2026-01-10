@@ -164,19 +164,20 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
     VOCAB: {json.dumps(words_metadata)}
     PERFORMANCE: {performance_str}
 
-    ### INSTRUCTIONS
     Generate 'LearningScreen' objects.
-    TARGET LANGUAGE FOR INSTRUCTIONS/TITLES: {target_language} (e.g. if 'de', use German for task instructions).
+    All instructions and titles must be provided in BOTH English and German.
+    **CRITICAL:** For 'title_de', IF you include the word's meaning in parentheses, KEEP IT IN ENGLISH.
+    (e.g. Title EN: "Learn: Hund (Dog)" -> Title DE: "Lerne: Hund (Dog)", NOT "Lerne: Hund (Hund)")
 
     **STRATEGY:**
     1. **IF STATUS IS 'CORRECT':**
-       - Generate 1 screen: 'word_card'. Content: "Quick review."
+       - Generate 1 screen: 'word_card'. Content: "Quick review." (DE: "Kurze Wiederholung.")
 
     2. **IF STATUS IS 'INCORRECT' (Reinforcement needed):**
        - Generate 3 screens:
-       * **Screen A:** 'word_card'. Add 'mnemonics'.
-       * **Screen B:** 'challenge' (fill_gap). Content: "Practice spelling.". Context: Sentence with gap. 'german_word' = Noun.
-       * **Screen C:** 'challenge' (choice). Content: "Check article.". Context: "___ Noun". 
+       * **Screen A:** 'word_card'. Add 'mnemonics' (in German).
+       * **Screen B:** 'challenge' (fill_gap). Content: "Practice spelling." (DE: "Übe die Rechtschreibung."). Context: Sentence with gap.
+       * **Screen C:** 'challenge' (choice). Content: "Check article." (DE: "Prüfe den Artikel."). Context: "___ Noun". 
          **CRITICAL:** Set 'german_word' to the FULL PHRASE (e.g. "der Tisch"), NOT just "der".
 
     3. **FINAL STEPS:**
@@ -187,7 +188,8 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
     [
       {{
         "step_number": 0,
-        "title": "Str", "content": "Str",
+        "title_en": "Str", "title_de": "Str",
+        "content_en": "Str", "content_de": "Str",
         "visual_type": "intro"|"word_card"|"story"|"challenge"|"dialogue"|"fun_fact",
         "interaction_type": "read_only"|"fill_gap"|"choice",
         "german_word": "Str", "article": "Str", "plural": "Str",
@@ -241,9 +243,19 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
 
             # TERAZ ZMIENNA JEST ZDEFINIOWANA
             final_path = [
-                {"step_number": 0, "title": "AI Plan", "content": f"Focusing on {incorrect_words_count} items.", "visual_type": "intro", "interaction_type": "read_only"}
+                {
+                    "step_number": 0, 
+                    "title_en": "AI Plan", "title_de": "KI-Plan", 
+                    "content_en": "Your personalized learning path is ready.", "content_de": "Dein persönlicher Lernpfad ist bereit.",
+                    "visual_type": "intro", "interaction_type": "read_only"
+                }
             ] + generated_path + [
-                {"step_number": 0, "title": "Ready", "content": "Starting Final Test.", "visual_type": "intro", "interaction_type": "read_only"}
+                {
+                    "step_number": 0, 
+                    "title_en": "Ready", "title_de": "Bereit", 
+                    "content_en": "Starting Final Test.", "content_de": "Der Abschlusstest beginnt.",
+                    "visual_type": "intro", "interaction_type": "read_only"
+                }
             ]
 
             for i, screen in enumerate(final_path): screen['step_number'] = i + 1
