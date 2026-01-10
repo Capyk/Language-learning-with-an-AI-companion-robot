@@ -20,14 +20,14 @@ interface TutorPanelProps {
         exerciseType?: string;
     };
     nudge?: any;
-    onClose?: () => void;
-    // NOWE PROPSY DO OBSŁUGI JĘZYKA
+    // Usunięto onClose, ponieważ nie jest używane
     language: 'de' | 'en';
     onLanguageChange: () => void;
 }
 
-export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, language, onLanguageChange }: TutorPanelProps) => {
-    // Inicjalizacja wiadomości powitalnej zależnie od języka startowego
+// Usunięto onClose z destrukturyzacji propsów
+export const TutorPanel = ({ isVisible, currentTaskContext, nudge, language, onLanguageChange }: TutorPanelProps) => {
+    
     const [messages, setMessages] = useState<TutorMessage[]>([
         { 
             id: 'welcome', 
@@ -41,12 +41,10 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Handle incoming nudges from the main app
     useEffect(() => {
         if (nudge) {
             const newMessage: TutorMessage = {
@@ -57,7 +55,7 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
                 mnemonic: nudge.mnemonic,
                 example: nudge.example
             };
-            // Unikaj duplikatów
+            
             setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last && last.text === newMessage.text) return prev;
@@ -87,7 +85,7 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
                         is_correct: currentTaskContext.isCorrect,
                         exercise_type: currentTaskContext.exerciseType || 'image_labeling'
                     },
-                    response_language: language // Używamy języka z propsów
+                    response_language: language
                 })
             });
 
@@ -109,7 +107,6 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
         }
     };
 
-    // Dynamiczne podpowiedzi zależnie od języka
     const QuickChips = language === 'de' 
         ? ["Einfacher erklären", "Gib ein Beispiel", "Was ist der Artikel?", "Merksatz bitte"]
         : ["Explain simply", "Give an example", "What is the article?", "Mnemonic please"];
@@ -124,11 +121,9 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
                     <div className="bg-white p-1.5 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600"><path d="M12 2a8 8 0 0 0-8 8c0 5 3 9 8 9s8-4 8-9a8 8 0 0 0-8-8Z" /><path d="M10 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /><path d="M15 16s-2 2-5-2" /></svg>
                     </div>
-                    {/* Dynamiczny tytuł */}
                     <span className="font-bold text-lg">{language === 'de' ? 'Dein Tutor' : 'Your Tutor'}</span>
                 </div>
 
-                {/* Language Toggle (Controlled via props) */}
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium opacity-90">EN</span>
                     <button
@@ -153,7 +148,6 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
                             {msg.text}
                         </div>
 
-                        {/* Structured Extras for Tutor Messages */}
                         {msg.sender === 'tutor' && (
                             <div className="space-y-1 mt-1 max-w-[85%] flex flex-wrap gap-1">
                                 {msg.mnemonic && (
@@ -200,7 +194,6 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, onClose, lang
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && sendMessage(input)}
-                        // Dynamiczny placeholder
                         placeholder={language === 'de' ? "Frag mich etwas..." : "Ask me something..."}
                         className="flex-1 bg-slate-50 border-slate-200 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-slate-800"
                         disabled={isLoading}
