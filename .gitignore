@@ -2,5 +2,9 @@
 .vscode
 venv
 backend/var.env
-.venv
-backend/.env
+.venv*
+backend/.env*
+node_modules/
+dist/
+*.pyc
+__pycache__/

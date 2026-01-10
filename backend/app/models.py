@@ -35,6 +35,18 @@ class SkipPhaseRequest(BaseModel):
     session_id: str
     phase: str 
 
+# --- TUTOR SCHEMAS ---
+class TutorTaskContext(BaseModel):
+    prompt: str
+    user_answer: str
+    expected_answer: str
+    is_correct: bool
+
+class TutorRequest(BaseModel):
+    question: str
+    task_context: TutorTaskContext
+    response_language: str = "de"  # 'de' for German, 'en' for English
+
 # --- LEARNING SCREEN SCHEMA ---
 class LearningScreen(BaseModel):
     step_number: int
