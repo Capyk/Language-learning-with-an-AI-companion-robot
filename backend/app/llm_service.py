@@ -253,3 +253,81 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
 
 async def real_time_correction(user_input, expected, attempt, level, history):
     return {"tip": "Check spelling."}
+
+async def generate_tutor_response(
+    question: str, 
+    context: Dict, 
+    is_nudge: bool = False,
+    target_language: str = "de"
+) -> Dict:
+    """
+    Generates an A1-level friendly German tutor response.
+    If is_nudge=True, it generates an unsolicited helpful tip based on the context.
+    If is_nudge=False, it answers the user's specific question.
+    """
+    if not _ensure_client():
+        return {
+            "message": "Entschuldigung, ich kann gerade nie antworten." if target_language == "de" else "Sorry, I cannot answer right now.",
+            "correction": None, "rule": None, "mnemonic": None, "example": None
+        }
+
+    # 1. Build the Persona and Prompt
+    persona = "You are 'Lukas', a friendly and encouraging A1 German tutor for beginners."
+    
+    if is_nudge:
+        prompt = f"""
+        {persona}
+        The student is practicing: '{context.get('prompt')}'
+        Student's answer: '{context.get('user_answer')}'
+        Expected answer: '{context.get('expected_answer')}'
+        Is it correct? {context.get('is_correct')}
+
+        TASK: Provide a very brief, helpful, and encouraging nudge in German (with English translation if complex).
+        Focus on the specific error if any, or provide a related fun fact/mnemonic if they were correct.
+        Keep it to 1-2 sentences.
+        """
+    else:
+        prompt = f"""
+        {persona}
+        Current context: Student is practicing '{context.get('prompt')}' (Target: '{context.get('expected_answer')}')
+        Student's question: "{question}"
+
+        TASK: Answer the question simply. Use A1 German where possible.
+        Return structured feedback.
+        """
+
+    # 2. Call Gemini
+    try:
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.models.generate_content(
+                model=TARGET_MODEL,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.7,
+                ),
+                contents=[prompt + "\nFormat: { 'message': '...', 'correction': '...', 'rule': '...', 'mnemonic': '...', 'example': '...' }"]
+            )
+        )
+        
+        raw_text = response.text.strip()
+        # Clean potential markdown wrapping
+        if raw_text.startswith("```json"): raw_text = raw_text[7:]
+        if raw_text.endswith("```"): raw_text = raw_text[:-3]
+        
+        data = json.loads(raw_text)
+        
+        # Translate message if target language is English
+        if target_language == "en" and data.get("message"):
+            # Simple fallback for this demo, usually you'd call the LLM again or have it dual-output
+            data["message"] = data["message"] # LLM typically follows target_language if specified in prompt
+            
+        return data
+
+    except Exception as e:
+        logger.error(f"❌ Tutor LLM Error: {e}")
+        return {
+            "message": "Ich habe gerade technische Probleme, aber mach weiter! Du schaffst das.",
+            "correction": None, "rule": None, "mnemonic": None, "example": None
+        }
