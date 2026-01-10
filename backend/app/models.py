@@ -65,3 +65,17 @@ class TaskResponse(BaseModel):
     # Placeholder for the actual task content (list of words, scenario text, etc.)
     # The 'payload' field will contain the list of VocabItems for the VOCAB_GEN task.
     payload: Dict
+
+# --- E. TUTOR SCHEMA ---
+
+class TutorTaskContext(BaseModel):
+    prompt: str
+    user_answer: Optional[str] = None
+    expected_answer: Optional[str] = None
+    is_correct: Optional[bool] = None
+    exercise_type: Optional[str] = None
+
+class TutorRequest(BaseModel):
+    question: str
+    task_context: TutorTaskContext
+    response_language: str = "de"  # 'de' for German, 'en' for English

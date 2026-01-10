@@ -138,6 +138,212 @@ async def generate_vocab_task(user_id: str, num_items: int, topic: str) -> List[
                 )
             )
         )
+# ... existing code ...
         return json.loads(response.text.strip())
     except Exception as e:
         raise Exception(f"LLM Task Failure: {str(e)}")
+
+async def generate_tutor_response(
+    question: str, 
+    context: Dict, 
+    is_nudge: bool = False,
+    target_language: str = "de"
+) -> Dict:
+    """
+    Generates an A1-level friendly German tutor response.
+    
+    Args:
+        question: User's question (or empty if it's a nudge).
+        context: Context about the current task (prompt, user_answer, expected, is_correct).
+        is_nudge: If True, generates a short unsolicited hint/correction without a direct user question.
+        target_language: 'de' (German) or 'en' (English) - determines the language of the tutor's response.
+    
+    Returns:
+        JSON dict with keys: message, correction, rule, mnemonic, example
+    """
+    if not CLIENT_INITIALIZED:
+        return {
+            "message": "Entschuldigung, ich kann gerade nicht antworten." if target_language == "de" else "Sorry, I cannot answer right now.",
+            "correction": None, 
+            "rule": None, 
+            "mnemonic": None, 
+            "example": None
+        }
+
+    # Context formatting
+    task_prompt = context.get('prompt', 'Unbekannte Aufgabe')
+    user_ans = context.get('user_answer', '(Keine Antwort)')
+    expected = context.get('expected_answer', '')
+    is_correct = context.get('is_correct')
+    
+    if target_language == 'en':
+        # --- ENGLISH TUTOR PERSONA ---
+        system_instruction = (
+            "You are a friendly, patient German Tutor for beginners (A1 level). "
+            "Your explanations must be in ENGLISH. "
+            "Keep sentences simple and short. "
+            "Avoid complex grammatical terms. "
+            "ALWAYS answer in JSON format. "
+            "Structure: \n"
+            "- message: Your direct answer in English (max 1-2 sentences).\n"
+            "- correction: Only if necessary, the correction of the user's German input (e.g., 'Correct is: ...'). Else null.\n"
+            "- rule: A very short rule in English (max 1 sentence), if helpful. Else null.\n"
+            "- mnemonic: A short mnemonic/memory aid in English, if possible. Else null.\n"
+            "- example: A very simple German example (A1 level) that fits the explanation. Else null.\n\n"
+            "Be empathetic. Mistakes are okay.\n"
+        )
+        
+        if is_nudge:
+             if is_correct:
+                user_interaction = (
+                    f"The user solved the task '{task_prompt}' correctly (Answer: '{user_ans}'). "
+                    "Give short praise in English (e.g., 'Very good!' or 'Great job!') and maybe a tiny sentence."
+                )
+             else:
+                 user_interaction = (
+                    f"The user solved the task '{task_prompt}' incorrectly (Answer: '{user_ans}', Correct was: '{expected}'). "
+                    "Give a short, encouraging hint in English. Mention the correct German solution and explain briefly why."
+                )
+        else:
+            user_interaction = (
+                f"Task Context: '{task_prompt}'. User Answer was: '{user_ans}' (Correct: {is_correct}, Expected: '{expected}').\n"
+                f"The user asks you: \"{question}\"\n"
+                "Answer the question in English contextually. Keep it simple."
+            )
+
+    else:
+        # --- GERMAN TUTOR PERSONA (Default) ---
+        system_instruction = (
+            "Du bist ein freundlicher, geduldiger Deutsch-Tutor für Anfänger (Niveau A1). "
+            "Deine Sprache ist einfach, deine Sätze sind kurz. "
+            "Vermeide komplizierte grammatikalische Begriffe. Wenn nötig, erkläre sie sehr einfach. "
+            "Antworte IMMER im JSON-Format. "
+            "Struktur: \n"
+            "- message: Deine direkte Antwort (max 1-2 Sätze).\n"
+            "- correction: Nur falls nötig, die Korrektur des Nutzers (z.B. 'Richtig ist: ...'). Sonst null.\n"
+            "- rule: Eine sehr kurze Regel (max 1 Satz), falls hilfreich. Sonst null.\n"
+            "- mnemonic: Ein kurzer Merksatz (Eselsbrücke), falls möglich. Sonst null.\n"
+            "- example: Ein sehr einfaches Beispiel (Niveau A1), das zur Erklärung passt. Sonst null.\n\n"
+            "Verhalte dich empathisch. Fehler sind okay.\n"
+        )
+
+        if is_nudge:
+            # Nudge Logic
+            if is_correct:
+                user_interaction = (
+                    f"Der Nutzer hat die Aufgabe '{task_prompt}' richtig gelöst (Antwort: '{user_ans}'). "
+                    "Gib ein sehr kurzes Lob (z.B. 'Sehr gut!' oder 'Klasse!') und vielleicht einen Minisatz dazu."
+                )
+            else:
+                 user_interaction = (
+                    f"Der Nutzer hat die Aufgabe '{task_prompt}' falsch gelöst (Antwort: '{user_ans}', Richtig wäre: '{expected}'). "
+                    "Gib eine kurze, aufmunternde Hilfe. Nenne die korrekte Lösung und erkläre kurz warum (sehr einfach)."
+                )
+        else:
+            # Direct Question Logic
+            user_interaction = (
+                f"Kontext Aufgabe: '{task_prompt}'. Nutzer-Antwort war: '{user_ans}' (Korrekt: {is_correct}, Richtig wäre: '{expected}').\n"
+                f"Der Nutzer fragt dich: \"{question}\"\n"
+                "Antworte auf die Frage im Kontext der Aufgabe. Bleib bei A1 Deutsch."
+            )
+
+    # Retry logic with exponential backoff
+    max_retries = 3
+    retry_delays = [0.5, 1.0, 2.0]  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[types.Content(role="user", parts=[types.Part(text=user_interaction)])],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        response_schema=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "message": types.Schema(type=types.Type.STRING),
+                                "correction": types.Schema(type=types.Type.STRING, nullable=True),
+                                "rule": types.Schema(type=types.Type.STRING, nullable=True),
+                                "mnemonic": types.Schema(type=types.Type.STRING, nullable=True),
+                                "example": types.Schema(type=types.Type.STRING, nullable=True)
+                            },
+                            required=["message"]
+                        )
+                    )
+                )
+            )
+            
+            # Try to parse JSON response
+            try:
+                parsed_response = json.loads(response.text.strip())
+                # Ensure message field exists
+                if "message" not in parsed_response or not parsed_response["message"]:
+                    raise ValueError("Response missing 'message' field")
+                return parsed_response
+            except (json.JSONDecodeError, ValueError) as parse_error:
+                print(f"[WARNING] Tutor JSON Parse Error (Attempt {attempt + 1}/{max_retries}): {parse_error}")
+                print(f"[DEBUG] Raw response: {response.text[:200]}")
+                
+                # Fallback: Try to extract message with regex
+                import re
+                message_match = re.search(r'"message"\s*:\s*"([^"]+)"', response.text)
+                if message_match:
+                    print("[INFO] Extracted message via regex fallback")
+                    return {
+                        "message": message_match.group(1),
+                        "correction": None,
+                        "rule": None,
+                        "mnemonic": None,
+                        "example": None
+                    }
+                
+                # If last attempt, raise the error
+                if attempt == max_retries - 1:
+                    raise
+                    
+        except Exception as e:
+            error_type = type(e).__name__
+            error_msg = str(e)
+            
+            print(f"[ERROR] Tutor LLM Error (Attempt {attempt + 1}/{max_retries}): {error_type}: {error_msg}")
+            
+            # Check if this is a retryable error
+            retryable_errors = ["timeout", "rate", "503", "429", "connection", "network"]
+            is_retryable = any(keyword in error_msg.lower() for keyword in retryable_errors)
+            
+            # If last attempt or non-retryable error, return error message
+            if attempt == max_retries - 1 or not is_retryable:
+                # Return specific error messages based on error type
+                if "rate" in error_msg.lower() or "429" in error_msg:
+                    msg = "Das Limit für Anfragen ist erreicht. Bitte warte einen Moment." if target_language == "de" else "The request limit has been reached. Please wait a moment."
+                    return {
+                        "message": msg,
+                        "correction": None, "rule": None, "mnemonic": None, "example": None
+                    }
+                elif "timeout" in error_msg.lower():
+                    msg = "Die Antwort dauert zu lange. Bitte versuche es nochmal." if target_language == "de" else "The response is taking too long. Please try again."
+                    return {
+                        "message": msg,
+                        "correction": None, "rule": None, "mnemonic": None, "example": None
+                    }
+                else:
+                    msg = "Entschuldigung, ich habe ein Problem. Bitte versuche es nochmal." if target_language == "de" else "Sorry, I'm having a problem. Please try again."
+                    return {
+                        "message": msg,
+                        "correction": None, "rule": None, "mnemonic": None, "example": None
+                    }
+            
+            # Wait before retry
+            if attempt < max_retries - 1:
+                print(f"[INFO] Retrying in {retry_delays[attempt]} seconds...")
+                await asyncio.sleep(retry_delays[attempt])
+    
+    # Fallback (should never reach here due to logic above)
+    return {
+        "message": "Entschuldigung, ich habe ein Problem. Bitte versuche es nochmal." if target_language == "de" else "Sorry, I'm having a problem. Please try again.",
+        "correction": None, "rule": None, "mnemonic": None, "example": None
+    }

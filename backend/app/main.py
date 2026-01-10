@@ -11,7 +11,11 @@ from . import endpoints
 import app.llm_service as llm_service
 
 # Load environment variables from .env file
-load_dotenv()
+# Try loading .env.local first, then .env
+if os.path.exists(".env.local"):
+    load_dotenv(".env.local")
+else:
+    load_dotenv()
 
 app = FastAPI(title="AI Tutor Backend - Experiment Version")
 
@@ -21,7 +25,7 @@ app = FastAPI(title="AI Tutor Backend - Experiment Version")
 IMAGE_DIRECTORY = "data/images"
 
 if not os.path.exists(IMAGE_DIRECTORY):
-    print(f"⚠️ Warning: The directory '{IMAGE_DIRECTORY}' does not exist. Image serving may fail.")
+    print(f"[WARNING] The directory '{IMAGE_DIRECTORY}' does not exist. Image serving may fail.")
 
 app.mount("/images", StaticFiles(directory=IMAGE_DIRECTORY), name="images")
 
@@ -43,18 +47,18 @@ async def startup_event():
         # Assign the global client object in llm_service module
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("🛑 Error: GEMINI_API_KEY not found in environment variables.")
+            print("[ERROR] GEMINI_API_KEY not found in environment variables.")
             llm_service.CLIENT_INITIALIZED = False
         else:
             llm_service.client = genai.Client(api_key=api_key)
             llm_service.CLIENT_INITIALIZED = True
-            print("✅ Gemini Client Initialized Successfully.")
+            print("[SUCCESS] Gemini Client Initialized Successfully.")
     except Exception as e:
-        print(f"🛑 Critical error initializing Gemini Client: {e}")
+        print(f"[CRITICAL ERROR] Initializing Gemini Client: {e}")
         llm_service.CLIENT_INITIALIZED = False
 
     # 2. Log server status
-    print(f"🚀 Server is running. Static images served from: {os.path.abspath(IMAGE_DIRECTORY)}")
+    print(f"[INFO] Server is running. Static images served from: {os.path.abspath(IMAGE_DIRECTORY)}")
 
 @app.get("/")
 async def root():

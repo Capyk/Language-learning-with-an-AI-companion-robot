@@ -4,3 +4,4 @@ venv
 backend/var.env
 .venv
 backend/.env
+backup.tar.gz
