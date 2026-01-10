@@ -1,5 +1,6 @@
 import asyncio
 import random
+import re
 import json
 import logging
 import time
@@ -115,7 +116,7 @@ def generate_static_learning_path_A(words: List[Dict]) -> List[Dict]:
 
 
 # --- ADAPTIVE GENERATOR (Group B) ---
-async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[Dict]) -> List[Dict]:
+async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[Dict], target_language: str = "en") -> List[Dict]:
     logger.info(">>> ATTEMPTING TO GENERATE ADAPTIVE AI PATH (GROUP B)")
     
     if not _ensure_client(): return generate_static_learning_path_A(words)
@@ -165,6 +166,7 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
 
     ### INSTRUCTIONS
     Generate 'LearningScreen' objects.
+    TARGET LANGUAGE FOR INSTRUCTIONS/TITLES: {target_language} (e.g. if 'de', use German for task instructions).
 
     **STRATEGY:**
     1. **IF STATUS IS 'CORRECT':**
@@ -221,7 +223,9 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
                 tgt = screen.get('german_word', '')
                 if not tgt: continue
                 
-                clean_tgt = tgt.replace("der ", "").replace("die ", "").replace("das ", "").strip().lower()
+                # FIX: Case-insensitive regex replacement for robustness
+                tgt_lower = tgt.strip().lower()
+                clean_tgt = re.sub(r'^(der|die|das)\s+', '', tgt_lower).strip()
                 
                 found_id = None
                 if clean_tgt in word_to_image_map:
@@ -290,6 +294,7 @@ async def generate_tutor_response(
         prompt = f"""
         {persona}
         Current context: Student is practicing '{context.get('prompt')}' (Target: '{context.get('expected_answer')}')
+        Task Type: {context.get('exercise_type', 'unknown')}
         Student's question: "{question}"
 
         TASK: Answer the question simply. Use A1 German where possible.

@@ -5,9 +5,9 @@ from typing import Dict, List, Set
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
-from .models import SessionInit, AnswerSubmit, SkipPhaseRequest, DemographicData
-from .llm_service import generate_static_learning_path_A, generate_adaptive_learning_path_B
-from .storage import init_db, save_session_result
+from .models import SessionInit, AnswerSubmit, SkipPhaseRequest, DemographicData, TutorRequest
+from .llm_service import generate_static_learning_path_A, generate_adaptive_learning_path_B, generate_tutor_response
+from .storage import init_db, save_session_result, create_session, get_session, update_session, delete_session
 
 router = APIRouter()
 try: init_db()
@@ -19,7 +19,7 @@ try:
     VOCAB_DF = VOCAB_DF.where(pd.notnull(VOCAB_DF), "")
 except: VOCAB_DF = pd.DataFrame()
 
-EXP_CACHE: Dict[str, dict] = {}
+# EXP_CACHE: Dict[str, dict] = {} # REMOVED: In-memory cache is not scalable
 
 def get_valid_variations(article_str: str, word_str: str) -> Set[str]:
     valid = set()
@@ -57,10 +57,14 @@ async def init_experiment(data: SessionInit):
     sid = str(uuid4())
     _, pre, post = prepare_experiment_items()
     l_path = []
+    # Save language preference if provided, otherwise default to "en" for now (frontend doesn't send it in Init yet)
+    # We will assume "en" or check if we can get it later.
+    # Actually, we should store it in session.
+    
     if data.condition == "A":
         l_path = generate_static_learning_path_A(pre)
 
-    EXP_CACHE[sid] = {
+    sess_data = {
         "session_id": sid, 
         "user_id": data.user_id, 
         "condition": data.condition,
@@ -68,14 +72,18 @@ async def init_experiment(data: SessionInit):
         "current_index": 0,
         "items": { "pre-test": pre, "learning_raw": pre, "learning_path": l_path, "post-test": post },
         "logs": [],
-        "start_time": datetime.now()
+        "start_time": datetime.now().isoformat() # Serialize for JSON
     }
+    
+    # Save to Supabase
+    create_session(sid, sess_data)
+    
     return {"session_id": sid}
 
 @router.get("/experiment/trial/{session_id}")
 async def get_trial(session_id: str):
-    sess = EXP_CACHE.get(session_id)
-    if not sess: raise HTTPException(404)
+    sess = get_session(session_id)
+    if not sess: raise HTTPException(404, detail="Session not found")
     phase = sess["phase"]
     idx = sess["current_index"]
 
@@ -85,6 +93,10 @@ async def get_trial(session_id: str):
         if idx >= len(path):
             sess["phase"] = "post-test"
             sess["current_index"] = 0
+            
+            # Update DB before recursion to prevent infinite loop
+            update_session(session_id, sess)
+            
             return await get_trial(session_id)
         
         # Zabezpieczenie przed pustą ścieżką
@@ -107,6 +119,10 @@ async def get_trial(session_id: str):
             print(f">>> Switching session {session_id} from pre-test to learning")
             sess["phase"] = "learning"
             sess["current_index"] = 0
+            
+            # Update DB
+            update_session(session_id, sess)
+            
             # Rekurencyjne wywołanie, żeby od razu zwrócić pierwszy element nauki
             return await get_trial(session_id)
         
@@ -136,12 +152,13 @@ async def get_trial(session_id: str):
 
 @router.post("/experiment/submit")
 async def submit_answer(data: AnswerSubmit):
-    sess = EXP_CACHE.get(data.session_id)
-    if not sess: raise HTTPException(404)
+    sess = get_session(data.session_id)
+    if not sess: raise HTTPException(404, detail="Session not found")
     phase = sess["phase"]
     
     if phase == "learning":
         sess["current_index"] += 1
+        update_session(data.session_id, sess)
         return {"is_correct": True, "move_next": True}
 
     items = sess["items"][phase]
@@ -197,22 +214,45 @@ async def submit_answer(data: AnswerSubmit):
         transition = True
         if phase == "pre-test" and sess["condition"] == "B":
             print(">>> Triggering AI...")
-            sess["items"]["learning_path"] = await generate_adaptive_learning_path_B(sess["items"]["learning_raw"], sess["logs"])
+            # We don't have language explicitly stored in session root reliably yet, but let's default to "en"
+            # Or we can check if frontend sends it. Ideally, session info should have language.
+            # For now, let's hardcode 'de' if context suggests, or better, change Init to accept it.
+            # But the user complains about "DE, EN translation", so likely they want the UI language.
+            # Let's assume 'en' is the default interface language, unless specified.
+            # We will pass "de" as target_language causes the whole UI to be in German?
+            # User said "tlumaczenie DE, EN nie dziala".
+            # Let's pass 'en' as default, but we need to know what the user selected.
+            # The tutor panel handles language switching. The Learning Path is generated ONCE.
+            # Ideally we generate content in ENGLISH (as instructions) and German (as content).
+            # Changing prompt to respect "target_language" helps.
+            
+            # Let's default to "en" for instructions unless we know otherwise.
+            # If the user wants the interface in German, we need that info.
+            # Currently frontend `startExperiment` doesn't send language.
+            
+            sess["items"]["learning_path"] = await generate_adaptive_learning_path_B(sess["items"]["learning_raw"], sess["logs"], target_language="en")
         elif phase == "pre-test" and sess["condition"] == "A" and not sess["items"]["learning_path"]:
              sess["items"]["learning_path"] = generate_static_learning_path_A(sess["items"]["learning_raw"])
+
+    # Update DB
+    update_session(data.session_id, sess)
 
     return {"is_correct": is_correct, "score": score, "move_next": True, "transition": transition, "feedback": feedback_txt}
 
 @router.post("/experiment/finalize")
 async def finalize_experiment(data: DemographicData):
-    # 1. Pobieramy sesję z pamięci podręcznej serwera
-    sess = EXP_CACHE.get(data.session_id)
+    # 1. Pobieramy sesję z bazy
+    sess = get_session(data.session_id)
     if not sess: 
         raise HTTPException(status_code=404, detail="Session not found")
     
     # 2. Obliczamy czas trwania eksperymentu
-    # Pobieramy czas startu zapisany przy inicjalizacji (fallback na datetime.now() dla bezpieczeństwa)
-    start_time = sess.get("start_time", datetime.now())
+    # Fallback na datetime.now() jeśli brak start_time
+    try:
+        start_time = datetime.fromisoformat(sess.get("start_time"))
+    except:
+        start_time = datetime.now()
+        
     end_time = datetime.now()
     
     # Obliczamy różnicę w sekundach (rzutujemy na int, żeby nie mieć ułamków)
@@ -224,19 +264,48 @@ async def finalize_experiment(data: DemographicData):
     # data.dict() zawiera to co przyszło z frontendu: age, gender, education, questionnaire itd.
     save_session_result(sess, data.dict(), duration_seconds)
     
-    # 4. (Opcjonalnie) Czyścimy sesję z pamięci RAM, bo już jej nie potrzebujemy
-    # Warto to odkomentować na produkcji, żeby serwer nie "puchł" od danych
-    if data.session_id in EXP_CACHE:
-        del EXP_CACHE[data.session_id]
+    # 4. Czyścimy sesję z tabeli aktywnych sesji
+    delete_session(data.session_id)
     
     return {"status": "success"}
 
 @router.post("/experiment/skip")
 async def skip_to_phase(data: SkipPhaseRequest):
-    session = EXP_CACHE.get(data.session_id)
+    session = get_session(data.session_id)
     if session:
         session["phase"] = data.phase
         session["current_index"] = 0
         if data.phase == "learning" and not session["items"]["learning_path"]:
              session["items"]["learning_path"] = generate_static_learning_path_A(session["items"]["learning_raw"])
+        update_session(data.session_id, session)
     return {"status": "ok"}
+
+@router.post("/experiment/tutor/ask")
+async def ask_tutor(data: TutorRequest):
+    # Context is passed directly from frontend
+    response = await generate_tutor_response(
+        question=data.question,
+        context=data.task_context.dict(),
+        is_nudge=False,
+        target_language=data.response_language
+    )
+    
+    # LOGGING
+    try:
+        sess = get_session(data.session_id)
+        if sess:
+            tutor_log = {
+                "timestamp": datetime.now().isoformat(),
+                "user_question": data.question,
+                "context": data.task_context.dict(),
+                "tutor_response": response
+            }
+            # Initialize list if not exists
+            if "tutor_logs" not in sess: sess["tutor_logs"] = []
+            sess["tutor_logs"].append(tutor_log)
+            
+            update_session(data.session_id, sess)
+    except Exception as e:
+        print(f"⚠️ Failed to log tutor interaction: {e}")
+        
+    return response

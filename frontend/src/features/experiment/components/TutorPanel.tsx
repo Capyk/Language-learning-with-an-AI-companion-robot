@@ -20,21 +20,22 @@ interface TutorPanelProps {
         exerciseType?: string;
     };
     nudge?: any;
+    sessionId: string; // Add sessionId to props
     // Usunięto onClose, ponieważ nie jest używane
     language: 'de' | 'en';
     onLanguageChange: () => void;
 }
 
 // Usunięto onClose z destrukturyzacji propsów
-export const TutorPanel = ({ isVisible, currentTaskContext, nudge, language, onLanguageChange }: TutorPanelProps) => {
-    
+export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, language, onLanguageChange }: TutorPanelProps) => {
+
     const [messages, setMessages] = useState<TutorMessage[]>([
-        { 
-            id: 'welcome', 
-            sender: 'tutor', 
-            text: language === 'de' 
-                ? "Hallo! Ich bin dein Tutor. Frag mich, wenn du Hilfe brauchst!" 
-                : "Hello! I am your tutor. Ask me if you need help!" 
+        {
+            id: 'welcome',
+            sender: 'tutor',
+            text: language === 'de'
+                ? "Hallo! Ich bin dein Tutor. Frag mich, wenn du Hilfe brauchst!"
+                : "Hello! I am your tutor. Ask me if you need help!"
         }
     ]);
     const [input, setInput] = useState('');
@@ -55,7 +56,7 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, language, onL
                 mnemonic: nudge.mnemonic,
                 example: nudge.example
             };
-            
+
             setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last && last.text === newMessage.text) return prev;
@@ -77,6 +78,7 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, language, onL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    session_id: sessionId, // Send session_id
                     question: text,
                     task_context: {
                         prompt: currentTaskContext.prompt,
@@ -107,7 +109,7 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, language, onL
         }
     };
 
-    const QuickChips = language === 'de' 
+    const QuickChips = language === 'de'
         ? ["Einfacher erklären", "Gib ein Beispiel", "Was ist der Artikel?", "Merksatz bitte"]
         : ["Explain simply", "Give an example", "What is the article?", "Mnemonic please"];
 

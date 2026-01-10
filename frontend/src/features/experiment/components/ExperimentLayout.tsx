@@ -10,9 +10,13 @@ interface ExperimentLayoutProps {
     onSubmit: (answer: string) => void;
     onSkip: (phase: string) => void;
     onNextTrial: () => void; // Wywoływane z FeedbackCard
+    // New optional props for Static Language Switcher
+    showLanguageSwitcher?: boolean;
+    language?: 'de' | 'en';
+    onLanguageChange?: () => void;
 }
 
-export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip, onNextTrial }: ExperimentLayoutProps) => {
+export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip, onNextTrial, showLanguageSwitcher, language, onLanguageChange }: ExperimentLayoutProps) => {
     const [localInput, setLocalInput] = useState('');
     const [selectedArticle, setSelectedArticle] = useState<string | null>(null);
 
@@ -37,12 +41,12 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
         }
     };
 
-    const trialImageUrl = trial?.image_url 
+    const trialImageUrl = trial?.image_url
         ? (trial.image_url.startsWith('http') ? trial.image_url : `${API_BASE}${trial.image_url}`)
         : null;
 
     const formatPhase = (p: string) => {
-        switch(p) {
+        switch (p) {
             case 'learning': return 'Learning Phase';
             case 'pre-test': return 'Pre-Test';
             case 'post-test': return 'Post-Test';
@@ -59,6 +63,20 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
                     <span className="uppercase tracking-widest text-[10px] font-black opacity-80">{formatPhase(trial?.phase)}</span>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* STATIC GROUP LANGUAGE SWITCHER */}
+                    {showLanguageSwitcher && onLanguageChange && (
+                        <button
+                            onClick={onLanguageChange}
+                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors border border-white/10"
+                            title="Switch Language"
+                        >
+                            <span className={`text-xs font-bold ${language === 'en' ? 'text-white' : 'text-white/50'}`}>EN</span>
+                            <div className="w-8 h-4 bg-black/50 rounded-full relative">
+                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${language === 'de' ? 'left-[18px]' : 'left-0.5'}`}></div>
+                            </div>
+                            <span className={`text-xs font-bold ${language === 'de' ? 'text-white' : 'text-white/50'}`}>DE</span>
+                        </button>
+                    )}
                     <span className="text-[10px] font-mono opacity-60">Item {trial ? trial.index + 1 : 0} of {trial?.total_in_phase}</span>
                 </div>
             </div>
@@ -68,11 +86,11 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
                 {/* Left: Image */}
                 <div className="bg-slate-100 flex flex-col items-center justify-center p-8 border-r border-slate-200 h-full relative overflow-hidden">
                     {trialImageUrl ? (
-                        <img 
-                            src={trialImageUrl} 
-                            alt="Task" 
-                            className="w-auto h-auto max-w-full max-h-[450px] object-contain transition-transform group-hover:scale-105 duration-700" 
-                            onError={(e) => { e.currentTarget.style.display='none'; }}
+                        <img
+                            src={trialImageUrl}
+                            alt="Task"
+                            className="w-auto h-auto max-w-full max-h-[450px] object-contain transition-transform group-hover:scale-105 duration-700"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                     ) : (
                         <div className="text-slate-300 font-bold">Image Placeholder</div>
@@ -84,9 +102,9 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
                 <div className="flex flex-col justify-center p-12 bg-white">
                     <div className="space-y-2 mb-8 text-left">
                         <h2 className="text-4xl font-black text-slate-800 leading-tight">
-                            {trial?.task_type === 'article_mcq' ? 'Which article fits?' : 
-                             trial?.task_type === 'plural_mcq' ? 'Select the Plural Form:' : 
-                             'Type the German Word:'}
+                            {trial?.task_type === 'article_mcq' ? 'Which article fits?' :
+                                trial?.task_type === 'plural_mcq' ? 'Select the Plural Form:' :
+                                    'Type the German Word:'}
                         </h2>
                         <p className="text-2xl text-slate-500 italic font-medium">"{trial?.english_gloss}"</p>
                     </div>
@@ -117,7 +135,7 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
                                     </div>
                                     <div className="flex gap-3 flex-wrap">
                                         {['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü'].map(c => (
-                                            <button key={c} onClick={()=>setLocalInput(p=>p+c)} className="w-12 h-12 bg-white border-2 border-slate-200 rounded-xl font-black text-xl text-slate-600 hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm active:scale-95">{c}</button>
+                                            <button key={c} onClick={() => setLocalInput(p => p + c)} className="w-12 h-12 bg-white border-2 border-slate-200 rounded-xl font-black text-xl text-slate-600 hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm active:scale-95">{c}</button>
                                         ))}
                                     </div>
                                 </div>

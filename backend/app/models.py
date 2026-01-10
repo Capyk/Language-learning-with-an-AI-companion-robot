@@ -38,11 +38,13 @@ class SkipPhaseRequest(BaseModel):
 # --- TUTOR SCHEMAS ---
 class TutorTaskContext(BaseModel):
     prompt: str
-    user_answer: str
-    expected_answer: str
-    is_correct: bool
+    user_answer: Optional[str] = None
+    expected_answer: Optional[str] = None
+    is_correct: Optional[bool] = None
+    exercise_type: Optional[str] = None
 
 class TutorRequest(BaseModel):
+    session_id: str
     question: str
     task_context: TutorTaskContext
     response_language: str = "de"  # 'de' for German, 'en' for English
