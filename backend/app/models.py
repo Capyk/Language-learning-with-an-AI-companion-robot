@@ -87,6 +87,7 @@ class DemographicData(BaseModel):
     education: str
     german_level: str
     questionnaire: Dict[str, Any] 
+    access_code: Optional[str] = None 
 
 # Logika wyniku
 class LogEntry(BaseModel):
@@ -98,3 +99,14 @@ class LogEntry(BaseModel):
     score: float 
     is_correct: bool 
     timestamp: str
+
+# --- ACCESS CODE MODELS ---
+class AccessCodeRequest(BaseModel):
+    access_code: str
+
+class AccessCodeResponse(BaseModel):
+    group: str
+    token: str
+
+class AdminCodeGenerate(BaseModel):
+    count: int

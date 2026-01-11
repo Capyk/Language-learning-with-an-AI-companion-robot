@@ -6,10 +6,16 @@ import { DemographicsForm } from './components/DemographicsForm';
 import { LearningScreen } from './components/LearningScreen';
 import { ExperimentLayout } from './components/ExperimentLayout';
 import { TutorPanel } from './components/TutorPanel';
+import { LandingPage } from './components/LandingPage';
 import { Icon } from '../../components/ui/Icons';
 
 const ExperimentContainer: React.FC = () => {
     const { state, actions } = useExperiment();
+
+    // --- AUTH STATE ---
+    const [accessCode, setAccessCode] = React.useState<string | null>(null);
+    const [assignedGroup, setAssignedGroup] = React.useState<string | null>(null);
+    const [authStep, setAuthStep] = React.useState(true); // true = showing LandingPage
 
     // --- POPRAWKA 1: Destrukturyzacja 'language' ze stanu ---
     const { view, currentTrial, isLoading, error, feedback, nudge, session, language } = state;
@@ -27,9 +33,39 @@ const ExperimentContainer: React.FC = () => {
         };
     }, []);
 
-    if (view === 'intro') return <IntroScreen onStart={actions.startExperiment} />;
+    // --- FIX: Restore view if session is loaded from storage ---
+    useEffect(() => {
+        if (state.session && authStep) {
+            setAuthStep(false);
+            // setAccessCode("RESTORED"); // REMOVED: Leave as null so handleFinalSubmit uses localStorage
+            setAssignedGroup(state.session.condition);
+        }
+    }, [state.session, authStep]);
+
+    if (authStep) {
+        return (
+            <LandingPage onSuccess={(code, group) => {
+                setAccessCode(code);
+                setAssignedGroup(group);
+                setAuthStep(false);
+            }} />
+        );
+    }
+
+    if (view === 'intro') {
+        return (
+            <IntroScreen
+                onStart={(grp) => actions.startExperiment(grp as 'A' | 'B')} // Cast for strict type in hook, though hook accepts string in practice if updated
+                assignedGroup={assignedGroup as 'A' | 'B'}
+            />
+        );
+    }
     if (view === 'questionnaire') return <Questionnaire onSubmit={actions.handleQuestSubmit} condition={session?.condition} />;
-    if (view === 'demographics') return <DemographicsForm onSubmit={actions.handleFinalSubmit} />;
+    if (view === 'demographics') {
+        return (
+            <DemographicsForm onSubmit={(data) => actions.handleFinalSubmit({ ...data, access_code: accessCode })} />
+        );
+    }
 
     if (view === 'done') {
         return (
@@ -37,7 +73,6 @@ const ExperimentContainer: React.FC = () => {
                 <Icon.CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
                 <h1 className="text-4xl font-black text-slate-800 mb-4 tracking-tight">Experiment Completed!</h1>
                 <p className="text-slate-500 mb-8 text-lg">Thank you for your participation. Your data has been successfully saved.</p>
-                <button onClick={() => window.location.reload()} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95">Start New Session</button>
             </div>
         );
     }
@@ -95,9 +130,11 @@ const ExperimentContainer: React.FC = () => {
                                 currentTaskContext={taskContext}
                                 nudge={nudge}
                                 sessionId={session.session_id} // PASS SESSION ID
-                                // --- POPRAWKA 3: Przekazanie języka i funkcji zmiany do Tutora ---
                                 language={language}
                                 onLanguageChange={() => actions.setLanguage(prev => prev === 'de' ? 'en' : 'de')}
+                                // PERSISTENCE
+                                initialHistory={currentTrial?.tutor_state?.history}
+                                initialPromptCount={currentTrial?.tutor_state?.prompt_count}
                             />
                         </div>
                     )}

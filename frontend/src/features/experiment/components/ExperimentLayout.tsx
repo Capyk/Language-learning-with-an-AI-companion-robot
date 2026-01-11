@@ -147,12 +147,6 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
                 </div>
             </div>
 
-            {/* Dev Tools Footer (można usunąć na produkcji) */}
-            <div className="absolute bottom-2 left-2 flex gap-2 opacity-20 hover:opacity-100 transition-opacity">
-                <button onClick={() => onSkip('pre-test')} className="p-1 bg-black text-white text-[10px]">Skip to Pre</button>
-                <button onClick={() => onSkip('learning')} className="p-1 bg-black text-white text-[10px]">Skip to Learn</button>
-                <button onClick={() => onSkip('post-test')} className="p-1 bg-black text-white text-[10px]">Skip to Post</button>
-            </div>
         </div>
     );
 };

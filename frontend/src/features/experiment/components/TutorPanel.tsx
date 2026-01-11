@@ -24,10 +24,13 @@ interface TutorPanelProps {
     // Usunięto onClose, ponieważ nie jest używane
     language: 'de' | 'en';
     onLanguageChange: () => void;
+    // New props for persistence
+    initialHistory?: TutorMessage[];
+    initialPromptCount?: number;
 }
 
 // Usunięto onClose z destrukturyzacji propsów
-export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, language, onLanguageChange }: TutorPanelProps) => {
+export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, language, onLanguageChange, initialHistory, initialPromptCount }: TutorPanelProps) => {
     const MAX_PROMPTS = 3; // Maximum number of user prompts per session
 
     const [messages, setMessages] = useState<TutorMessage[]>([
@@ -41,12 +44,22 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, la
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [promptCount, setPromptCount] = useState(0); // Track number of user prompts
+    const [promptCount, setPromptCount] = useState(initialPromptCount || 0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // HYDRATION: Update state if initial props change (e.g. on restore)
+    useEffect(() => {
+        if (initialHistory && initialHistory.length > 0) {
+            setMessages(initialHistory);
+        }
+        if (initialPromptCount !== undefined) {
+            setPromptCount(initialPromptCount);
+        }
+    }, [sessionId, initialHistory, initialPromptCount]); // Re-hydrate on session change or prop update
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    }, [messages, isVisible]); // Scroll on open too
 
     useEffect(() => {
         if (nudge) {

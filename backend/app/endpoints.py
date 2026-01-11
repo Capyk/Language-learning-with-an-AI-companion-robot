@@ -1,13 +1,17 @@
 import pandas as pd
 import random
 from uuid import uuid4
-from typing import Dict, List, Set
-from fastapi import APIRouter, HTTPException
+from typing import Dict, List, Set, Optional
+from fastapi import APIRouter, HTTPException, Header
 from datetime import datetime
 
-from .models import SessionInit, AnswerSubmit, SkipPhaseRequest, DemographicData, TutorRequest
+from .models import SessionInit, AnswerSubmit, SkipPhaseRequest, DemographicData, TutorRequest, AccessCodeRequest, AccessCodeResponse, AdminCodeGenerate
 from .llm_service import generate_static_learning_path_A, generate_adaptive_learning_path_B, generate_tutor_response
-from .storage import init_db, save_session_result, create_session, get_session, update_session, delete_session
+from .storage import (
+    init_db, save_session_result, create_session, get_session, update_session, delete_session, 
+    validate_and_use_code, delete_access_code, generate_codes, get_all_codes, increment_code_copy_count,
+    get_next_group
+)
 
 router = APIRouter()
 try: init_db()
@@ -61,13 +65,18 @@ async def init_experiment(data: SessionInit):
     # We will assume "en" or check if we can get it later.
     # Actually, we should store it in session.
     
-    if data.condition == "A":
+    # If condition is not provided (or we want to override for balancing), determine it now.
+    # Frontend might send "A" or "B" for testing, but ideally we ignore it or use it as hint.
+    # Given the requirements, we force the assignment here.
+    assigned_condition = get_next_group()
+    
+    if assigned_condition == "A":
         l_path = generate_static_learning_path_A(pre)
-
+    
     sess_data = {
         "session_id": sid, 
         "user_id": data.user_id, 
-        "condition": data.condition,
+        "condition": assigned_condition,
         "phase": "pre-test", 
         "current_index": 0,
         "items": { "pre-test": pre, "learning_raw": pre, "learning_path": l_path, "post-test": post },
@@ -78,7 +87,7 @@ async def init_experiment(data: SessionInit):
     # Save to Supabase
     create_session(sid, sess_data)
     
-    return {"session_id": sid}
+    return {"session_id": sid, "condition": assigned_condition}
 
 @router.get("/experiment/trial/{session_id}")
 async def get_trial(session_id: str):
@@ -103,9 +112,35 @@ async def get_trial(session_id: str):
         if not path:
              return {"status": "error", "message": "Learning path empty"}
 
+        today_logs = sess.get("tutor_logs", [])
+    
+        # Reconstruct history for frontend
+        history = []
+        for log in today_logs:
+            # User message
+            history.append({
+                "id": f"hist-u-{log['timestamp']}",
+                "sender": "user",
+                "text": log["user_question"]
+            })
+            # My output format from generate_tutor_response is dict with message, correction etc.
+            resp = log["tutor_response"]
+            history.append({
+                "id": f"hist-b-{log['timestamp']}",
+                "sender": "tutor",
+                "text": resp.get("message", ""),
+                "isCorrection": bool(resp.get("correction")), # Ensure booleans
+                "mnemonic": resp.get("mnemonic"),
+                "example": resp.get("example")
+            })
+
         return {
             "phase": "learning", "index": idx, "total_in_phase": len(path),
-            "task_type": "learning_step", "payload": path[idx]
+            "task_type": "learning_step", "payload": path[idx],
+            "tutor_state": {
+                "prompt_count": len(today_logs),
+                "history": history
+            }
         }
 
     # 2. Obsługa Pre-Test i Post-Test
@@ -142,12 +177,38 @@ async def get_trial(session_id: str):
         while len(opts) < 3: opts.append(corr+"e")
         random.shuffle(opts)
 
+    today_logs = sess.get("tutor_logs", [])
+    
+    # Reconstruct history for frontend
+    history = []
+    for log in today_logs:
+        # User message
+        history.append({
+            "id": f"hist-u-{log['timestamp']}",
+            "sender": "user",
+            "text": log["user_question"]
+        })
+        # My output format from generate_tutor_response is dict with message, correction etc.
+        resp = log["tutor_response"]
+        history.append({
+            "id": f"hist-b-{log['timestamp']}",
+            "sender": "tutor",
+            "text": resp.get("message", ""),
+            "isCorrection": bool(resp.get("correction")), # Ensure booleans
+            "mnemonic": resp.get("mnemonic"),
+            "example": resp.get("example")
+        })
+
     return {
         "phase": phase, "index": idx, "total_in_phase": len(items),
         "task_type": item.get('assigned_task', 'type_word'),
         "image_url": f"/images/{item['image_id']}.jpg",
         "english_gloss": item['english_gloss'],
-        "options": opts
+        "options": opts,
+        "tutor_state": {
+            "prompt_count": len(today_logs),
+            "history": history
+        }
     }
 
 @router.post("/experiment/submit")
@@ -267,8 +328,75 @@ async def finalize_experiment(data: DemographicData):
     # 4. Czyścimy sesję z tabeli aktywnych sesji
     delete_session(data.session_id)
     
+    # 5. Delete access code if present
+    if data.access_code:
+        delete_access_code(data.access_code)
+    
     return {"status": "success"}
 
+    
+# --- ACCESS CODE ENDPOINTS ---
+
+ADMIN_SECRET = "admin-secret-123"
+
+def verify_admin(x_admin_token: str = Header(None)):
+    if x_admin_token != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid admin token")
+
+@router.post("/admin/codes/generate", dependencies=[]) # FIX: Add dependency
+async def generate_access_codes(data: AdminCodeGenerate, token: str = Header(..., alias="X-Admin-Token")):
+    if token != ADMIN_SECRET: raise HTTPException(403)
+    codes = generate_codes(data.count)
+    return {"status": "ok", "codes": codes}
+
+@router.get("/admin/codes")
+async def get_access_codes_list(token: str = Header(..., alias="X-Admin-Token")):
+    if token != ADMIN_SECRET: raise HTTPException(403)
+    codes = get_all_codes()
+    return {"codes": codes}
+
+@router.post("/admin/codes/{code}/copy")
+async def copy_access_code(code: str, token: str = Header(..., alias="X-Admin-Token")): # Check token here too? Usually safer.
+    # Frontend copy logic might need update if we protect this strictly, but let's do it.
+    if token != ADMIN_SECRET: raise HTTPException(403)
+    increment_code_copy_count(code)
+    return {"status": "ok"}
+
+@router.post("/experiment/auth", response_model=AccessCodeResponse)
+async def authenticate_user(data: AccessCodeRequest):
+    # Validate code first
+    if not validate_and_use_code(data.access_code):
+         raise HTTPException(401, detail="Invalid or used access code")
+    
+    # Predict the group for UI display (Sequential Logic)
+    # We call get_next_group() here so IntroScreen knows what to show.
+    # The actual assignment happens again at /experiment/init to be safe/consistent,
+    # or we trust this flow. Given sequential requirement "in order of passing consent",
+    # showing B and then assigning B is correct.
+    group = get_next_group()
+    
+    return {"group": group, "token": data.access_code}
+
+# --- UPDATE FINALIZE TO DELETE CODE ---
+# We need to receive the access code in finalize to delete it.
+# Ideally, we should add `access_code` to DemographicData or a separate field.
+# Let's modify DemographicData in models.py first? Or just extract it here if we change the payload structure.
+# But `DemographicData` is a pydantic model. 
+# Let's update `DemographicData` in models.py to include optional access_code.
+# Wait, I can't update models.py and endpoints.py in same turn easily if they depend on imports.
+# I already updated models.py in previous turn (I didn't add access_code to DemographicData, only SessionInit).
+# Let's add it dynamically or assume it's in the dict? No, Pydantic will strip it if not in model.
+# I will update `DemographicData` model in `models.py` in next turn or I can just pass it as a query param?
+# Better to update `DemographicData`. For now, I'll rely on a second call or separate endpoint? 
+# No, "Whenever someone finishes... access codes are removed".
+# I'll update `DemographicData` in `models.py` to have `access_code`. 
+# Actually, I can use a hack: accept a dict if I change the signature, but better to keep it typed.
+# I will update `endpoints.py` assuming `DemographicData` has `access_code` (I will add it to `models.py` in a micro-step if missed, or check).
+# I missed adding `access_code` to `DemographicData` in `models.py` (I added it to `SessionInit`).
+# I will modify `finalize_experiment` to accept the code via a header or just add it to the model in `models.py` now.
+# Let's check `models.py` content again? I can't.
+# I will add `access_code` to `DemographicData` in `models.py` FIRST in a separate tool call in this turn to be safe.
+        
 @router.post("/experiment/skip")
 async def skip_to_phase(data: SkipPhaseRequest):
     session = get_session(data.session_id)

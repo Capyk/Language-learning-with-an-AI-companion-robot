@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { API_BASE } from '../../../config/api';
 
 export const useExperiment = () => {
@@ -14,6 +14,39 @@ export const useExperiment = () => {
   const [view, setView] = useState<'intro' | 'experiment' | 'questionnaire' | 'demographics' | 'done'>('intro');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const STORAGE_KEY_SESSION_ID = 'experiment_session_id';
+  const STORAGE_KEY_ACCESS_CODE = 'experiment_access_code';
+  const STORAGE_KEY_CONDITION = 'experiment_condition';
+
+  const restoreSession = async (sid: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/experiment/trial/${sid}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "completed") {
+          localStorage.removeItem(STORAGE_KEY_SESSION_ID);
+          return;
+        }
+        // Restore state
+        setSession({
+          session_id: sid,
+          condition: localStorage.getItem(STORAGE_KEY_CONDITION) || 'A'
+        });
+        setView('experiment');
+        setCurrentTrial(data);
+      }
+    } catch (e) {
+      console.error("Failed to restore session", e);
+    }
+  };
+
+  useEffect(() => {
+    const savedSid = localStorage.getItem(STORAGE_KEY_SESSION_ID);
+    if (savedSid) {
+      restoreSession(savedSid);
+    }
+  }, []);
 
   const fetchNextTrial = useCallback(async (sessionId: string) => {
     setIsLoading(true);
@@ -54,7 +87,15 @@ export const useExperiment = () => {
         body: JSON.stringify({ user_id: `user_${Date.now()}`, condition }),
       });
       const data = await resp.json();
-      setSession({ ...data, condition }); // Preserve condition in state
+
+      const finalCondition = data.condition || condition;
+
+      setSession({ ...data, condition: finalCondition });
+
+      // Save to storage
+      localStorage.setItem(STORAGE_KEY_SESSION_ID, data.session_id);
+      localStorage.setItem(STORAGE_KEY_CONDITION, finalCondition);
+
       setView('experiment');
       fetchNextTrial(data.session_id);
     } catch {
@@ -126,16 +167,26 @@ export const useExperiment = () => {
 
   const handleFinalSubmit = async (formData: any) => {
     setIsLoading(true);
+    // Try to get access code from formData or localStorage
+    const codeToDelete = formData.access_code || localStorage.getItem(STORAGE_KEY_ACCESS_CODE);
+
     try {
       await fetch(`${API_BASE}/experiment/finalize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: session.session_id,
+          access_code: codeToDelete,
           ...formData,
           questionnaire: questData
         })
       });
+
+      // Clear storage
+      localStorage.removeItem(STORAGE_KEY_SESSION_ID);
+      localStorage.removeItem(STORAGE_KEY_CONDITION);
+      localStorage.removeItem(STORAGE_KEY_ACCESS_CODE);
+
       setView('done');
     } catch {
       setError("Failed to save data.");

@@ -3,12 +3,16 @@ import { Icon } from '../../../components/ui/Icons';
 
 interface IntroScreenProps {
     onStart: (cond: 'A' | 'B') => void;
+    assignedGroup: 'A' | 'B';
 }
 
-export const IntroScreen = ({ onStart }: IntroScreenProps) => {
+export const IntroScreen = ({ onStart, assignedGroup }: IntroScreenProps) => {
     // Stan zarządzający etapem: 'consent' (zgoda) lub 'instructions' (instrukcja)
     const [step, setStep] = useState<'consent' | 'instructions'>('consent');
-    const [selectedGroup, setSelectedGroup] = useState<'A' | 'B' | null>(null);
+    // REMOVED: const [selectedGroup, setSelectedGroup] = useState<'A' | 'B' | null>(null);
+    // acceptedGroup comes from props
+
+    // --- LOGIKA CONSENT FORM ---
 
     // --- LOGIKA CONSENT FORM ---
     const [showFullText, setShowFullText] = useState(false);
@@ -24,8 +28,8 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
         setConsents(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const handleConsentSubmit = (group: 'A' | 'B') => {
-        setSelectedGroup(group);
+    const handleConsentSubmit = () => {
+        // REMOVED: setSelectedGroup(group);
         setStep('instructions');
         // Scroll to top
         window.scrollTo(0, 0);
@@ -163,21 +167,15 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                         </label>
                     </div>
 
-                    {/* ACTION BUTTONS */}
-                    <div className="grid grid-cols-2 gap-6 mt-4">
+                    {/* ACTION BUTTONS - AUTOMATIC ASSIGNMENT */}
+                    <div className="mt-8">
                         <button
                             disabled={!canProceed}
-                            onClick={() => handleConsentSubmit('A')}
-                            className="py-5 bg-blue-600 text-white rounded-2xl font-bold text-xl hover:bg-blue-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
+                            onClick={() => handleConsentSubmit()}
+                            className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold text-xl hover:bg-blue-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed flex justify-center items-center gap-2"
                         >
-                            {canProceed ? "Proceed (Group A)" : "Complete Consent"}
-                        </button>
-                        <button
-                            disabled={!canProceed}
-                            onClick={() => handleConsentSubmit('B')}
-                            className="py-5 bg-purple-600 text-white rounded-2xl font-bold text-xl hover:bg-purple-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
-                        >
-                            {canProceed ? "Proceed (Group B)" : "Complete Consent"}
+                            {canProceed ? "Proceed to Instructions" : "Complete Consent to Proceed"}
+                            {canProceed && <Icon.ArrowRight />}
                         </button>
                     </div>
 
@@ -206,13 +204,13 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
                         <span>3. Post-Test</span>
                     </div>
                     <p className="mt-4 text-slate-600 text-lg">
-                        {selectedGroup === 'A'
+                        {assignedGroup === 'A'
                             ? "In the learning phase, you will follow a structured path to study the vocabulary items with standard exercises."
                             : "In the learning phase, an AI tutor will analyze your mistakes and generate personalized exercises to help you improve."}
                     </p>
                 </div>
 
-                {selectedGroup === 'B' && (
+                {assignedGroup === 'B' && (
                     <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100 animate-in fade-in slide-in-from-bottom-4">
                         <div className="flex items-center gap-3 mb-3">
                             <Icon.Sparkles className="text-purple-600" size={24} />
@@ -263,7 +261,7 @@ export const IntroScreen = ({ onStart }: IntroScreenProps) => {
 
                 {/* Start Button */}
                 <button
-                    onClick={() => selectedGroup && onStart(selectedGroup)}
+                    onClick={() => onStart(assignedGroup)}
                     className="w-full py-6 bg-slate-900 text-white rounded-2xl font-black text-2xl hover:bg-black shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 group mt-4"
                 >
                     BEGIN EXPERIMENT
