@@ -120,7 +120,7 @@ export const useExperiment = () => {
     }
   };
 
-  const submitAnswer = async (userAnswer: string) => {
+  const submitAnswer = async (userAnswer: string, extraData: any = {}) => {
     setIsLoading(true);
     setError(null);
 
@@ -132,7 +132,8 @@ export const useExperiment = () => {
           session_id: session.session_id,
           user_answer: userAnswer,
           start_time: 0,
-          language: language
+          language: language,
+          ...extraData
         }),
       });
       const data = await resp.json();

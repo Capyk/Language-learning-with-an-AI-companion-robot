@@ -5,7 +5,7 @@ import { Icon } from '../../../components/ui/Icons';
 
 interface LearningScreenProps {
   data: any;
-  onNext: () => void;
+  onNext: (result?: any) => void;
   language: 'de' | 'en';
   showLanguageSwitcher?: boolean;
   onLanguageChange?: () => void;
@@ -306,8 +306,26 @@ export const LearningScreen = ({ data, onNext, language, showLanguageSwitcher, o
                 if (data.interaction_type !== 'read_only' && status === 'idle') {
                   handleCheck();
                 } else {
-                  onNext();
+                  // Capture state before continue
+                  const result = {
+                    user_answer: data.interaction_type === 'fill_gap' ? localInput : (selectedOption || "READ_ONLY"),
+                    // For logic: IF was 'read_only' then isCorrect = true.
+                    // If 'checked', use isCorrect state.
+                    // IF 'checked' IS SKIPPED (user clicked continue without check... wait, button changes)
+                    // The button logic ensures handleCheck() is called first if interaction_type != read_only.
+                    // So if we are here, status is 'checked' OR type is read_only.
+                    is_correct: data.interaction_type === 'read_only' ? true : isCorrect,
+                    score: data.interaction_type === 'read_only' ? 1.0 : (isCorrect ? 1.0 : 0.0),
+                    task_type: data.interaction_type || "read_only",
+                    item_context: {
+                      german_word: data.german_word,
+                      question_context: data.question_context,
+                      visual_type: data.visual_type
+                    }
+                  };
+                  onNext(result);
                 }
+
               }}
               className={`w-full py-3 rounded-xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98] group ${status === 'idle' && data.interaction_type !== 'read_only'
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700'
@@ -321,6 +339,6 @@ export const LearningScreen = ({ data, onNext, language, showLanguageSwitcher, o
 
         </div>
       </div>
-    </div>
+    </div >
   );
 };

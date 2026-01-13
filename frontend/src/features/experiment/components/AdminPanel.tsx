@@ -7,6 +7,7 @@ interface AccessCode {
     used: boolean;
     created_at: string;
     copy_count: number;
+    usage_count: number;
 }
 
 export const AdminPanel = () => {
@@ -82,6 +83,19 @@ export const AdminPanel = () => {
         }
     };
 
+    const handleDelete = async (code: string) => {
+        if (!confirm(`Are you sure you want to delete code ${code}?`)) return;
+        try {
+            await fetch(`${API_BASE}/admin/codes/${code}`, {
+                method: 'DELETE',
+                headers: { 'X-Admin-Token': token }
+            });
+            fetchCodes(token);
+        } catch (e) {
+            alert("Delete failed");
+        }
+    };
+
     if (!isLoggedIn) {
         return (
             <div className="fixed inset-0 w-screen h-screen bg-slate-50 overflow-auto grid place-items-center">
@@ -148,6 +162,7 @@ export const AdminPanel = () => {
                                     <th className="p-4">Code</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4">Copy Count</th>
+                                    <th className="p-4">Activations</th>
                                     <th className="p-4">Created</th>
                                     <th className="p-4 text-right">Action</th>
                                 </tr>
@@ -164,13 +179,20 @@ export const AdminPanel = () => {
                                             )}
                                         </td>
                                         <td className="p-4 font-bold text-slate-600">{c.copy_count}</td>
+                                        <td className="p-4 font-bold text-indigo-600">{c.usage_count || 0}</td>
                                         <td className="p-4 text-sm text-slate-400">{new Date(c.created_at).toLocaleString()}</td>
-                                        <td className="p-4 text-right">
+                                        <td className="p-4 text-right flex justify-end gap-2">
                                             <button
                                                 onClick={() => handleCopy(c.code)}
-                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-2 ml-auto"
+                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-2"
                                             >
                                                 <Icon.Copy size={16} /> Copy
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(c.code)}
+                                                className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-all flex items-center gap-2"
+                                            >
+                                                <Icon.Trash size={16} /> Delete
                                             </button>
                                         </td>
                                     </tr>

@@ -10,7 +10,7 @@ from .llm_service import generate_static_learning_path_A, generate_adaptive_lear
 from .storage import (
     init_db, save_session_result, create_session, get_session, update_session, delete_session, 
     validate_and_use_code, delete_access_code, generate_codes, get_all_codes, increment_code_copy_count,
-    get_next_group
+    increment_code_usage, get_next_group
 )
 
 router = APIRouter()
@@ -222,6 +222,19 @@ async def submit_answer(data: AnswerSubmit):
     phase = sess["phase"]
     
     if phase == "learning":
+        # LOGGING LEARNING PHASE
+        # We rely on frontend to send correctness/input for learning steps
+        if data.task_type:
+            log = {
+                "phase": phase, "word": getattr(data.item_context, "german_word", "N/A") if data.item_context else "N/A",
+                "task_type": data.task_type, "user_input": data.user_answer,
+                "is_correct": data.is_correct if data.is_correct is not None else True, 
+                "score": data.score if data.score is not None else (1.0 if data.is_correct else 0.0),
+                "timestamp": str(datetime.now())
+            }
+            if not "logs" in sess: sess["logs"] = []
+            sess["logs"].append(log)
+            
         sess["current_index"] += 1
         update_session(data.session_id, sess)
         return {"is_correct": True, "move_next": True}
@@ -365,10 +378,15 @@ async def get_access_codes_list(token: str = Header(..., alias="X-Admin-Token"))
     return {"codes": codes}
 
 @router.post("/admin/codes/{code}/copy")
-async def copy_access_code(code: str, token: str = Header(..., alias="X-Admin-Token")): # Check token here too? Usually safer.
-    # Frontend copy logic might need update if we protect this strictly, but let's do it.
+async def copy_access_code(code: str, token: str = Header(..., alias="X-Admin-Token")): 
     if token != ADMIN_SECRET: raise HTTPException(403)
     increment_code_copy_count(code)
+    return {"status": "ok"}
+
+@router.delete("/admin/codes/{code}")
+async def delete_access_code_endpoint(code: str, token: str = Header(..., alias="X-Admin-Token")):
+    if token != ADMIN_SECRET: raise HTTPException(403)
+    delete_access_code(code)
     return {"status": "ok"}
 
 @router.post("/experiment/auth", response_model=AccessCodeResponse)
@@ -376,13 +394,11 @@ async def authenticate_user(data: AccessCodeRequest):
     # Validate code first
     if not validate_and_use_code(data.access_code):
          raise HTTPException(401, detail="Invalid or used access code")
-    
-    # Predict the group for UI display (Sequential Logic)
-    # We call get_next_group() here so IntroScreen knows what to show.
-    # The actual assignment happens again at /experiment/init to be safe/consistent,
-    # or we trust this flow. Given sequential requirement "in order of passing consent",
-    # showing B and then assigning B is correct.
+    # Predict the group for water display
     group = get_next_group()
+
+    # Track usage (how many people activated this code)
+    increment_code_usage(data.access_code)
     
     return {"group": group, "token": data.access_code}
 

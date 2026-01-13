@@ -31,6 +31,11 @@ class AnswerSubmit(BaseModel):
     start_time: float
     history: Optional[List[str]] = []
     language: Optional[str] = "en"
+    # New fields for detailed logging (e.g. Learning Phase)
+    task_type: Optional[str] = None
+    is_correct: Optional[bool] = None
+    score: Optional[float] = None
+    item_context: Optional[Dict[str, Any]] = None # To store what was shown (german_word, etc.)
 
 class SkipPhaseRequest(BaseModel):
     session_id: str

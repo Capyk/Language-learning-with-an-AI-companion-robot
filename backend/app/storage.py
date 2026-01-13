@@ -145,7 +145,7 @@ def generate_codes(count: int = 10):
         part1 = ''.join(secrets.choice(chars) for _ in range(3))
         part2 = ''.join(secrets.choice(chars) for _ in range(3))
         code = f"{part1}-{part2}"
-        new_codes.append({"code": code, "used": False, "copy_count": 0})
+        new_codes.append({"code": code, "used": False, "copy_count": 0, "usage_count": 0})
         
     try:
         data = supabase.table("access_codes").insert(new_codes).execute()
@@ -165,6 +165,18 @@ def increment_code_copy_count(code: str):
             supabase.table("access_codes").update({"copy_count": curr + 1}).eq("code", code).execute()
     except Exception as e:
         print(f"❌ Failed to increment copy count: {e}")
+
+def increment_code_usage(code: str):
+    if not supabase: return
+    try:
+        res = supabase.table("access_codes").select("usage_count").eq("code", code).execute()
+        if res.data:
+            # Handle case where usage_count might be None if column is new/null
+            curr = res.data[0].get("usage_count") or 0
+            supabase.table("access_codes").update({"usage_count": curr + 1}).eq("code", code).execute()
+    except Exception as e:
+        print(f"❌ Failed to increment usage count: {e}")
+
 
 def validate_and_use_code(code: str) -> str:
     """

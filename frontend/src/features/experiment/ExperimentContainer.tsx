@@ -108,7 +108,7 @@ const ExperimentContainer: React.FC = () => {
                     <div className="flex-1 w-full min-w-0 transition-all duration-500">
                         <LearningScreen
                             data={currentTrial.payload}
-                            onNext={() => actions.submitAnswer('next_step')}
+                            onNext={(result) => actions.submitAnswer('next_step', result)}
                             // --- POPRAWKA 2: Przekazanie języka do LearningScreen ---
                             language={language}
                             // LANGUAGE SWITCHER FOR STATIC GROUP (Only in Learning Phase, Condition A)
