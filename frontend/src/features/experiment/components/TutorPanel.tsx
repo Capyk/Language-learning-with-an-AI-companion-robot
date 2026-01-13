@@ -27,10 +27,11 @@ interface TutorPanelProps {
     // New props for persistence
     initialHistory?: TutorMessage[];
     initialPromptCount?: number;
+    onInteraction?: () => void;
 }
 
 // Usunięto onClose z destrukturyzacji propsów
-export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, language, onLanguageChange, initialHistory, initialPromptCount }: TutorPanelProps) => {
+export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, language, onLanguageChange, initialHistory, initialPromptCount, onInteraction }: TutorPanelProps) => {
     const MAX_PROMPTS = 3; // Maximum number of user prompts per session
 
     const [messages, setMessages] = useState<TutorMessage[]>([
@@ -93,6 +94,11 @@ export const TutorPanel = ({ isVisible, currentTaskContext, nudge, sessionId, la
         setInput('');
         setIsLoading(true);
         setPromptCount(prev => prev + 1); // Increment prompt counter
+
+        // Notify parent about interaction
+        if (onInteraction) {
+            onInteraction();
+        }
 
         try {
             const response = await fetch(`${API_BASE}/experiment/tutor/ask`, {

@@ -184,8 +184,9 @@ export const LearningScreen = ({ data, onNext, language, showLanguageSwitcher, o
             <h1 className="text-2xl font-black text-slate-800 mb-1 leading-tight">
               {formatText(data[`title_${language}`] || translateBackendContent(data.title))}
             </h1>
-            {/* Don't show content in header for text-heavy types, show in body instead */}
-            {!['story', 'dialogue', 'fun_fact', 'summary'].includes(data.visual_type) && (
+            {/* Don't show content in header for text-heavy types, show in body instead - WAIT, user wants instructions here! */}
+            {/* The user wants "Listen and read..." (content) in header, and dialogue (example_sentence) in body. */}
+            {(
               <p className="text-base text-slate-500 font-medium leading-snug">
                 {formatText(data[`content_${language}`] || translateBackendContent(data.content))}
               </p>
@@ -256,14 +257,33 @@ export const LearningScreen = ({ data, onNext, language, showLanguageSwitcher, o
 
             {/* TEXT ONLY (Intro/Story/etc) */}
             {(['story', 'intro', 'summary', 'fun_fact', 'dialogue'].includes(data.visual_type)) && (
-              <div className="p-4 rounded-xl font-serif text-lg text-slate-700 leading-relaxed text-center">
-                {/* For intro, content is usually in header, but for others we put it here */}
-                {/* BUT, if I hid it in header for these types, I MUST show it here. */}
-                {/* Also need to handle localized content fields */}
-                {formatText(data[`content_${language}`] || translateBackendContent(data.example_sentence || data.content))}
+              <div className="p-4 rounded-xl font-serif text-lg text-slate-700 leading-relaxed text-center overflow-y-auto max-h-[400px]">
+                {/* 
+                     For these types, we want to show the ACTUAL content (story, dialogue) here. 
+                     The instructions should be in the header.
+                  */}
+                {formatText(data.example_sentence || data.content_de || data.content || "")}
               </div>
             )}
           </div>
+
+          {/* MNEMONICS DISPLAY */}
+          {(data.mnemonics || data.mnemonics_en || data.mnemonics_de) && (
+            <div className="mx-8 mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 text-sm flex items-start gap-3 shadow-sm">
+              <Icon.Lightbulb className="shrink-0 mt-0.5 text-amber-600" size={18} />
+              <div className="flex-1">
+                <div className="font-bold text-xs uppercase tracking-wide text-amber-700 mb-1">{t.ai_tip} - Mnemonic</div>
+                <div className="leading-snug">
+                  {formatText(
+                    (language === 'en' ? data.mnemonics_en : data.mnemonics_de) ||
+                    data.mnemonics ||
+                    data.mnemonics_en ||
+                    data.mnemonics_de
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* FOOTER AREA (Feedback + Button) */}
           <div className="mt-4 shrink-0">

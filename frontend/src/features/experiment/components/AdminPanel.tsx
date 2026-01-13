@@ -93,7 +93,7 @@ export const AdminPanel = () => {
                     <form onSubmit={handleLogin}>
                         <input
                             type="password"
-                            className="w-full text-center text-xl font-bold py-4 rounded-xl border-2 border-slate-200 mb-4 focus:ring-4 focus:ring-indigo-100 outline-none"
+                            className="w-full text-center text-xl font-bold py-4 rounded-xl border-2 border-slate-200 mb-4 focus:ring-4 focus:ring-indigo-100 outline-none text-slate-900"
                             placeholder="Enter Admin Password"
                             value={passwordInput}
                             onChange={e => setPasswordInput(e.target.value)}
@@ -122,7 +122,7 @@ export const AdminPanel = () => {
                                 type="number"
                                 value={genCount}
                                 onChange={e => setGenCount(Number(e.target.value))}
-                                className="w-24 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 font-bold"
+                                className="w-24 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 font-bold text-slate-900"
                             />
                         </div>
                         <button

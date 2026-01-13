@@ -1,6 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { API_BASE } from '../../../config/api';
 
+const STORAGE_KEY_SESSION_ID = 'experiment_session_id';
+export const STORAGE_KEY_ACCESS_CODE = 'experiment_access_code';
+const STORAGE_KEY_CONDITION = 'experiment_condition';
+const STORAGE_KEY_TUTOR_USED = 'experiment_tutor_used';
+
 export const useExperiment = () => {
   const [session, setSession] = useState<any>(null);
   const [currentTrial, setCurrentTrial] = useState<any>(null);
@@ -15,24 +20,32 @@ export const useExperiment = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const STORAGE_KEY_SESSION_ID = 'experiment_session_id';
-  const STORAGE_KEY_ACCESS_CODE = 'experiment_access_code';
-  const STORAGE_KEY_CONDITION = 'experiment_condition';
+  const [hasUsedTutor, setHasUsedTutor] = useState(false);
 
   const restoreSession = async (sid: string) => {
     try {
       const res = await fetch(`${API_BASE}/experiment/trial/${sid}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.status === "completed") {
-          localStorage.removeItem(STORAGE_KEY_SESSION_ID);
-          return;
-        }
-        // Restore state
+        // Restore state regardless of status so handleFinalSubmit has session_id
         setSession({
           session_id: sid,
           condition: localStorage.getItem(STORAGE_KEY_CONDITION) || 'A'
         });
+
+        if (data.status === "completed") {
+          // FIX: Don't remove session yet, allow user to finish questionnaire
+          // localStorage.removeItem(STORAGE_KEY_SESSION_ID); 
+          setView('questionnaire');
+          return;
+        }
+
+        // Restore tutor usage state
+        const savedTutorUsed = localStorage.getItem(STORAGE_KEY_TUTOR_USED);
+        if (savedTutorUsed === 'true') {
+          setHasUsedTutor(true);
+        }
+
         setView('experiment');
         setCurrentTrial(data);
       }
@@ -57,12 +70,11 @@ export const useExperiment = () => {
       const resp = await fetch(`${API_BASE}/experiment/trial/${sessionId}`);
       const data = await resp.json();
 
-      console.log("Fetched trial data:", data);
+
 
       if (data.status === "completed") {
         setView('questionnaire');
       } else if (data.status === "transition") {
-        console.log("Transitioning phases...");
         setTimeout(() => {
           fetchNextTrial(sessionId);
         }, 500);
@@ -96,6 +108,10 @@ export const useExperiment = () => {
       localStorage.setItem(STORAGE_KEY_SESSION_ID, data.session_id);
       localStorage.setItem(STORAGE_KEY_CONDITION, finalCondition);
 
+      // Reset logic for new session
+      localStorage.removeItem(STORAGE_KEY_TUTOR_USED);
+      setHasUsedTutor(false);
+
       setView('experiment');
       fetchNextTrial(data.session_id);
     } catch {
@@ -115,12 +131,13 @@ export const useExperiment = () => {
         body: JSON.stringify({
           session_id: session.session_id,
           user_answer: userAnswer,
-          start_time: 0
+          start_time: 0,
+          language: language
         }),
       });
       const data = await resp.json();
 
-      console.log("Submit response:", data);
+
 
       const shouldMoveNext =
         data.move_next ||
@@ -160,6 +177,13 @@ export const useExperiment = () => {
     }
   };
 
+  const markTutorUsed = useCallback(() => {
+    if (!hasUsedTutor) {
+      setHasUsedTutor(true);
+      localStorage.setItem(STORAGE_KEY_TUTOR_USED, 'true');
+    }
+  }, [hasUsedTutor]);
+
   const handleQuestSubmit = (data: any) => {
     setQuestData(data);
     setView('demographics');
@@ -186,6 +210,7 @@ export const useExperiment = () => {
       localStorage.removeItem(STORAGE_KEY_SESSION_ID);
       localStorage.removeItem(STORAGE_KEY_CONDITION);
       localStorage.removeItem(STORAGE_KEY_ACCESS_CODE);
+      localStorage.removeItem(STORAGE_KEY_TUTOR_USED);
 
       setView('done');
     } catch {
@@ -196,7 +221,7 @@ export const useExperiment = () => {
   };
 
   return {
-    state: { session, currentTrial, feedback, nudge, isLoading, error, view, language }, // Dodano language
+    state: { session, currentTrial, feedback, nudge, isLoading, error, view, language, hasUsedTutor }, // Updated
     actions: {
       startExperiment,
       submitAnswer,
@@ -204,7 +229,8 @@ export const useExperiment = () => {
       skipToPhase,
       handleQuestSubmit,
       handleFinalSubmit,
-      setLanguage // Dodano setLanguage
+      setLanguage,
+      markTutorUsed,
     }
   };
 };

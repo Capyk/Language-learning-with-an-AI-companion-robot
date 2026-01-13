@@ -18,8 +18,7 @@ export const IntroScreen = ({ onStart, assignedGroup }: IntroScreenProps) => {
     const [showFullText, setShowFullText] = useState(false);
     const [consents, setConsents] = useState({
         isAdult: false,
-        participate: false,
-        webcam: false
+        participate: false
     });
 
     const canProceed = consents.isAdult && consents.participate;
@@ -58,37 +57,41 @@ export const IntroScreen = ({ onStart, assignedGroup }: IntroScreenProps) => {
                                 <h3 className="font-bold text-lg mb-2">What you will do</h3>
                                 <ul className="list-disc ml-5 text-slate-600 space-y-1">
                                     <li>Complete a short vocabulary pre-test</li>
-                                    <li>Complete a short learning session</li>
-                                    <li>Complete a short post-test and questionnaire (Duration: ~15 minutes)</li>
+                                    <li>Complete a learning section with vocabulary tasks</li>
+                                    <li>Optionally interact with an AI tutor (limited use)</li>
+                                    <li>Complete a short post-test and questionnaire</li>
                                 </ul>
+                                <p className="text-slate-500 text-sm mt-2">Duration: ~15 minutes</p>
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg mb-2">Data collected</h3>
                                 <ul className="list-disc ml-5 text-slate-600 space-y-1">
                                     <li>Task answers and response times</li>
                                     <li>Feedback condition (static or AI-based)</li>
+                                    <li>AI tutor interaction data (number of prompts used)</li>
                                     <li>Questionnaire responses</li>
-                                    <li>(Optional) webcam-based gaze/attention metrics</li>
+                                    <li>Basic demographic information (Age, Gender, Education, Proficiency)</li>
                                 </ul>
                             </div>
                         </div>
 
                         <div className="grid md:grid-cols-2 gap-6">
                             <div>
-                                <h3 className="font-bold text-lg mb-2">Webcam & AI</h3>
+                                <h3 className="font-bold text-lg mb-2">AI Tutor</h3>
                                 <ul className="list-disc ml-5 text-slate-600 space-y-1">
-                                    <li>Webcam is used only to estimate gaze direction</li>
-                                    <li><strong>No video recordings are stored</strong></li>
-                                    <li>Some participants receive AI-generated feedback</li>
+                                    <li>Some participants can use an AI-based tutor during learning</li>
+                                    <li>The tutor provides short explanations and hints</li>
+                                    <li>You may use up to 3 prompts maximum during the learning phase</li>
                                 </ul>
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg mb-2">Rights & Legal</h3>
+                                <h3 className="font-bold text-lg mb-2">Your rights</h3>
                                 <ul className="list-disc ml-5 text-slate-600 space-y-1">
                                     <li>Participation is voluntary</li>
                                     <li>You can stop at any time without consequences</li>
-                                    <li>Data processing is based on your consent (GDPR Art. 6(1)(a))</li>
                                 </ul>
+                                <h3 className="font-bold text-lg mt-4 mb-2">Legal basis</h3>
+                                <p className="text-slate-600">Data processing is based on your consent (GDPR Art. 6(1)(a))</p>
                             </div>
                         </div>
                     </div>
@@ -107,40 +110,123 @@ export const IntroScreen = ({ onStart, assignedGroup }: IntroScreenProps) => {
                     {/* FULL VERSION TEXT */}
                     {showFullText && (
                         <div className="bg-white p-6 rounded-3xl border-2 border-indigo-50 text-sm text-slate-600 h-96 overflow-y-auto shadow-inner leading-relaxed animate-in fade-in slide-in-from-top-4">
-                            <h2 className="font-black text-lg text-slate-800 mb-2">Participant Information and Informed Consent (Full Version)</h2>
+                            <h2 className="font-black text-lg text-slate-800 mb-2">Participant Information and Informed Consent (Full Version for the link)</h2>
 
                             <p className="mb-2"><strong>Study Title:</strong> Human–AI Interaction in Vocabulary Learning</p>
-                            <p className="mb-4"><strong>Institution:</strong> Technical University of Munich (TUM), Course: Human–AI Interaction</p>
+                            <p className="mb-2"><strong>Institution:</strong> Technical University of Munich (TUM)</p>
+                            <p className="mb-2"><strong>Course:</strong> Human–AI Interaction</p>
+                            <p className="mb-4"><strong>Researchers:</strong> Elham Tajalli, Alexander Brehmer, Ugur Alimoglu, Kacper Kolodziejczyk</p>
+                            <p className="mb-4 text-xs">Contact: elham.tajalli@tum.de, alexander.brehmer@tum.de, ugur.alimoglu@tum.de, kacper.kolodziejczyk@tum.de</p>
+
+                            <hr className="my-4 border-slate-100" />
 
                             <h3 className="font-bold text-slate-800 mt-4">1. Purpose of the Study</h3>
-                            <p className="mb-2">You are invited to participate in a research study conducted as part of a university course project. The purpose of this study is to investigate how different types of feedback in a web-based vocabulary learning system influence learner engagement and short-term learning outcomes. Specifically, the study compares static (non-adaptive) feedback and adaptive, AI-generated feedback.</p>
+                            <p className="mb-2">You are invited to participate in a research study conducted as part of a university course project. The purpose of this study is to investigate how different types of feedback in a web-based vocabulary learning system influence learner engagement and short-term learning outcomes.</p>
+                            <p className="mb-2">Specifically, the study compares:</p>
+                            <ul className="list-disc ml-5 mb-2">
+                                <li>static (non-adaptive) feedback, and</li>
+                                <li>adaptive, AI-generated feedback.</li>
+                            </ul>
 
                             <h3 className="font-bold text-slate-800 mt-4">2. Study Procedure</h3>
-                            <p className="mb-2">If you agree to participate, you will complete the following steps: Read and agree to this consent form, complete a short vocabulary pre-test, complete a learning session involving image-based German vocabulary tasks, complete a post-test, and a short questionnaire. The study takes approximately 12–15 minutes.</p>
+                            <p className="mb-2">If you agree to participate, you will complete the following steps:</p>
+                            <ol className="list-decimal ml-5 mb-2">
+                                <li>Read and agree to this consent form</li>
+                                <li>Complete a short vocabulary pre-test</li>
+                                <li>Complete a learning session involving image-based German vocabulary tasks</li>
+                                <li>Optıonally interact with an AI tutor during learning</li>
+                                <li>Complete a post-test and a short questionnare</li>
+                            </ol>
+                            <p className="mb-2">The study takes approximately 12–15 minutes in total.</p>
 
                             <h3 className="font-bold text-slate-800 mt-4">3. Tasks and Interaction</h3>
-                            <p className="mb-2">During the learning tasks, you will be shown images and asked to answer simple vocabulary-related questions. Feedback may be presented as either static text or AI-generated explanations. The AI system is used solely to generate short feedback messages and does not make decisions about scoring.</p>
+                            <p className="mb-2">During the learning phase, you will complete simple German vocabulary tasks (e.g., selecting the correct article for an image).</p>
+                            <p className="mb-2">Some participants will have access to an AI-based tutor that can provide short explanations or hints related to the task.</p>
+                            <p className="mb-2">Important details about the AI tutor:</p>
+                            <ul className="list-disc ml-5 mb-2">
+                                <li>Tutor interaction is optional</li>
+                                <li>You may submit up to 3 prompts maximum during the learning phase</li>
+                                <li>The AI tutor does not evaluate performance or assign scores</li>
+                                <li>The tutor is designed only to support learning</li>
+                            </ul>
 
-                            <h3 className="font-bold text-slate-800 mt-4">4. Webcam-Based Gaze / Attention Measurement</h3>
-                            <p className="mb-2">This study may use your webcam to estimate gaze direction. Your webcam video is not recorded or stored. Only derived gaze information is collected. You may decline webcam access.</p>
+                            <h3 className="font-bold text-slate-800 mt-4">4. AI System Use</h3>
+                            <p className="mb-2">The AI tutor uses an AI language model running locally (via Ollama) to generate short feedback messages.</p>
+                            <ul className="list-disc ml-5 mb-2">
+                                <li>No personal identifying information is provided to the AI system</li>
+                                <li>AI-generated content is used solely for educational feedback</li>
+                                <li>AI processing is performed locally; no data is sent to external cloud services</li>
+                            </ul>
 
                             <h3 className="font-bold text-slate-800 mt-4">5. Data Collected</h3>
-                            <p className="mb-2">Responses to vocabulary tasks, response times, feedback condition, questionnaire responses, and estimated gaze metrics (if granted). The study does not intentionally collect sensitive personal data.</p>
+                            <p className="mb-2">The following data may be collected:</p>
+                            <ul className="list-disc ml-5 mb-2">
+                                <li>Vocabulary task responses</li>
+                                <li>Response times</li>
+                                <li>Assigned feedback condition</li>
+                                <li>AI tutor usage data (e.g., number of prompts used)</li>
+                                <li>Questionnaire responses</li>
+                                <li>Basic demographic information, including:
+                                    <ul className="list-circle ml-5">
+                                        <li>Age (in years or age range)</li>
+                                        <li>Gender</li>
+                                        <li>Highest level of education</li>
+                                        <li>Self-reported German language proficiency</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                            <p className="mb-2">The study does not intentionally collect sensitive personal data.</p>
 
-                            <h3 className="font-bold text-slate-800 mt-4">6. Legal Basis (GDPR)</h3>
-                            <p className="mb-2">Data processing is based on informed consent (GDPR Art. 6(1)(a)). You may withdraw your consent at any time without consequences.</p>
+                            <h3 className="font-bold text-slate-800 mt-4">6. Legal Basis for Data Processing (GDPR)</h3>
+                            <p className="mb-2">Data processing in this study is based on informed consent in accordance with Article 6(1)(a) of the General Data Protection Regulation (GDPR).</p>
+                            <p className="mb-2">You may withdraw your consent at any time without giving a reason. Withdrawal does not affect the lawfulness of data processing carried out prior to withdrawal.</p>
 
-                            <h3 className="font-bold text-slate-800 mt-4">7. Data Storage & Retention</h3>
-                            <p className="mb-2">Data will be stored on restricted systems. Participants are identified using a randomly generated ID. Data will be analyzed in aggregated form. Data will be retained until 31.03.2026.</p>
+                            <h3 className="font-bold text-slate-800 mt-4">7. Data Storage, Anonymization, and Retention</h3>
+                            <ul className="list-disc ml-5 mb-2">
+                                <li>Data will be stored on the researchers’ devices and/or university systems with restricted access.</li>
+                                <li>Participants are identified using a randomly generated participant ID.</li>
+                                <li>Data will be analyzed and reported only in aggregated and anonymized form.</li>
+                                <li>No identifying information will be included in publications or reports.</li>
+                            </ul>
+                            <p className="mb-2">Data will be retained until 31.03.2026, after which it will be deleted.</p>
 
-                            <h3 className="font-bold text-slate-800 mt-4">8. Contact</h3>
+                            <h3 className="font-bold text-slate-800 mt-4">8. Voluntary Participation and Withdrawal</h3>
+                            <p className="mb-2">Participation in this study is entirely voluntary. You may stop participating at any time by closing the browser window or selecting the exit option. There are no negative consequences for withdrawing.</p>
+
+                            <h3 className="font-bold text-slate-800 mt-4">9. Risks and Benefits</h3>
+                            <p className="mb-2">There are no known risks beyond those associated with normal computer use. While you may benefit from practicing German vocabulary, there is no guaranteed personal benefit from participation.</p>
+
+                            <h3 className="font-bold text-slate-800 mt-4">10. Contact Information</h3>
+                            <p className="mb-2">If you have questions about the study or your data, you may contact:</p>
                             <p className="mb-2">Researchers: elham.tajalli@tum.de, alexander.brehmer@tum.de, ugur.alimoglu@tum.de, kacper.kolodziejczyk@tum.de</p>
+                            <p className="mb-2">Course instructor or teaching staff: efe.bozkir@tum.de</p>
+
+                            <h3 className="font-bold text-slate-800 mt-4">11. Consent Statement</h3>
+                            <p className="mb-2">By agreeing to participate, you confirm that:</p>
+                            <ul className="list-disc ml-5 mb-2">
+                                <li>You are at least 18 years old</li>
+                                <li>You have read and understood the information above</li>
+                                <li>You voluntarily consent to participate in this study</li>
+                            </ul>
                         </div>
                     )}
 
                     <hr className="border-slate-200" />
 
                     {/* CONSENT CHECKBOXES */}
+                    <div className="space-y-4 px-4 hidden">
+                        {/* 
+                            NOTE: The user request asks for checkoxes:
+                            ☐ I am at least 18 years old
+                            ☐ I agree to participate in this study
+                            but then only asks for buttons [I agree and continue] [I do not agree]
+                            
+                            Usually with explicit buttons like "I agree and continue", the checkboxes are implicit or part of the flow.
+                            However, the prompt specifically listed the checkboxes in the text.
+                            So I will KEEP them, but I will REMOVE the "webcam" checkbox as it wasn't in the new text.
+                        */}
+                    </div>
+
                     <div className="space-y-4 px-4">
                         <label className="flex items-center gap-4 cursor-pointer p-4 rounded-xl hover:bg-slate-50 transition-colors border-2 border-transparent hover:border-slate-200">
                             <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all ${consents.isAdult ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>
@@ -157,25 +243,29 @@ export const IntroScreen = ({ onStart, assignedGroup }: IntroScreenProps) => {
                             <input type="checkbox" className="hidden" checked={consents.participate} onChange={() => toggleConsent('participate')} />
                             <span className="text-lg font-bold text-slate-700">I agree to participate in this study</span>
                         </label>
-
-                        <label className="flex items-center gap-4 cursor-pointer p-4 rounded-xl hover:bg-slate-50 transition-colors border-2 border-transparent hover:border-slate-200">
-                            <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all ${consents.webcam ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300'}`}>
-                                {consents.webcam && <Icon.CheckCircle size={20} />}
-                            </div>
-                            <input type="checkbox" className="hidden" checked={consents.webcam} onChange={() => toggleConsent('webcam')} />
-                            <span className="text-lg font-medium text-slate-600">I agree to webcam-based gaze data collection (optional)</span>
-                        </label>
                     </div>
 
                     {/* ACTION BUTTONS - AUTOMATIC ASSIGNMENT */}
-                    <div className="mt-8">
+                    <div className="mt-8 flex gap-4">
                         <button
                             disabled={!canProceed}
                             onClick={() => handleConsentSubmit()}
-                            className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold text-xl hover:bg-blue-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                            className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-bold text-xl hover:bg-blue-700 shadow-xl transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed flex justify-center items-center gap-2"
                         >
-                            {canProceed ? "Proceed to Instructions" : "Complete Consent to Proceed"}
+                            {canProceed ? "I agree and continue" : "Completing Consent..."}
                             {canProceed && <Icon.ArrowRight />}
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                if (window.confirm("Are you sure you want to decline?")) {
+                                    window.close(); // Tries to close tab
+                                    window.location.href = "about:blank"; // Fallback
+                                }
+                            }}
+                            className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-2xl font-bold text-xl hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-95 flex justify-center items-center gap-2"
+                        >
+                            I do not agree
                         </button>
                     </div>
 

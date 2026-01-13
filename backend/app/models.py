@@ -30,6 +30,7 @@ class AnswerSubmit(BaseModel):
     user_answer: str
     start_time: float
     history: Optional[List[str]] = []
+    language: Optional[str] = "en"
 
 class SkipPhaseRequest(BaseModel):
     session_id: str
@@ -62,6 +63,8 @@ class LearningScreen(BaseModel):
     image_url: Optional[str] = None
     example_sentence: Optional[str] = None
     mnemonics: Optional[str] = None
+    mnemonics_en: Optional[str] = None
+    mnemonics_de: Optional[str] = None
     
     interaction_type: Optional[str] = "read_only"
     question_context: Optional[str] = None

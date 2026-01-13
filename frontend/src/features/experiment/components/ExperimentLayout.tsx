@@ -7,6 +7,7 @@ interface ExperimentLayoutProps {
     trial: any;
     feedback: any;
     isLoading: boolean;
+    loadingText?: string;
     onSubmit: (answer: string) => void;
     onSkip: (phase: string) => void;
     onNextTrial: () => void; // Wywoływane z FeedbackCard
@@ -16,7 +17,7 @@ interface ExperimentLayoutProps {
     onLanguageChange?: () => void;
 }
 
-export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip, onNextTrial, showLanguageSwitcher, language, onLanguageChange }: ExperimentLayoutProps) => {
+export const ExperimentLayout = ({ trial, feedback, isLoading, loadingText, onSubmit, onSkip, onNextTrial, showLanguageSwitcher, language, onLanguageChange }: ExperimentLayoutProps) => {
     const [localInput, setLocalInput] = useState('');
     const [selectedArticle, setSelectedArticle] = useState<string | null>(null);
 
@@ -95,7 +96,12 @@ export const ExperimentLayout = ({ trial, feedback, isLoading, onSubmit, onSkip,
                     ) : (
                         <div className="text-slate-300 font-bold">Image Placeholder</div>
                     )}
-                    {isLoading && !feedback && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 font-bold text-blue-500 backdrop-blur-sm">Loading...</div>}
+                    {isLoading && !feedback && (
+                        <div className="absolute inset-0 bg-white/50 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
+                            <div className="font-bold text-blue-500 mb-2">Loading...</div>
+                            {loadingText && <div className="text-lg font-bold text-indigo-700 animate-pulse text-center px-4">{loadingText}</div>}
+                        </div>
+                    )}
                 </div>
 
                 {/* Right: Interaction */}

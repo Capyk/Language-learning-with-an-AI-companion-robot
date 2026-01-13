@@ -4,9 +4,10 @@ import { Icon } from '../../../components/ui/Icons';
 interface QuestionnaireProps {
     onSubmit: (data: any) => void;
     condition?: string;
+    tutorUsed?: boolean;
 }
 
-export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
+export const Questionnaire = ({ onSubmit, condition, tutorUsed }: QuestionnaireProps) => {
     const [answers, setAnswers] = useState<any>({});
 
     // Zmiana na skalę 4-stopniową (wymusza wybór pozytywny/negatywny)
@@ -70,8 +71,8 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
         }
     ];
 
-    // FIX: Jeśli condition == 'A', usuwamy sekcję E (Tutor Eval)
-    const activeSections = (condition === 'A')
+    // FIX: Jeśli condition == 'A', usuwamy sekcję E (Tutor Eval) -> LUB jeśli condition == 'B' ale tutorUsed == false
+    const activeSections = (condition === 'A' || (condition === 'B' && !tutorUsed))
         ? sections.filter(s => !s.title.includes("Section E"))
         : sections;
 
@@ -79,7 +80,21 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
     const filledLikert = Object.keys(answers).filter(k => k.startsWith('q_')).length;
 
     // Walidacja: Wszystkie pytania zamknięte muszą być wypełnione
-    const isComplete = filledLikert >= totalLikertQuestions;
+    const countWords = (str?: string) => {
+        if (!str) return 0;
+        return str.trim().split(/\s+/).filter(w => w.length > 0).length;
+    };
+
+    const MIN_WORDS = 10;
+    const openQuestions = ['open_like', 'open_confusing', 'open_suggestions'];
+
+    // Check if open questions are valid (>= MIN_WORDS)
+    const openValid = openQuestions.every(key => {
+        const val = answers[key] || "";
+        return countWords(val) >= MIN_WORDS;
+    });
+
+    const isComplete = (filledLikert >= totalLikertQuestions) && openValid;
 
     const handleChange = (id: string, val: any) => {
         setAnswers((prev: any) => ({ ...prev, [id]: val }));
@@ -161,9 +176,14 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
                 </div>
             ))}
 
+
+
             {/* Section F - Open Ended */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8 border-l-8 border-l-slate-700">
                 <h2 className="text-2xl font-bold text-slate-800 mb-6">Section F – Open Ended</h2>
+                <div className="bg-amber-50 text-amber-800 p-4 rounded-lg mb-6 text-sm font-bold border border-amber-200">
+                    Please provide detailed answers. Minimum {MIN_WORDS} words required per question.
+                </div>
 
                 <div className="grid gap-8">
                     {/* Q26 */}
@@ -171,10 +191,17 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
                         <label className="block text-slate-700 font-bold mb-3 text-lg">26. What did you like most about the feedback?</label>
                         <textarea
                             onChange={e => handleChange('open_like', e.target.value)}
+                            value={answers['open_like'] || ''}
                             rows={3}
-                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 bg-slate-50 focus:bg-white placeholder-slate-400 text-base"
+                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_like'] && countWords(answers['open_like']) < MIN_WORDS)
+                                ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                                : 'border-slate-300 focus:ring-indigo-500 bg-white focus:bg-white'
+                                }`}
                             placeholder="Your answer..."
                         ></textarea>
+                        <div className={`text-xs mt-1 font-bold ${countWords(answers['open_like']) < MIN_WORDS ? 'text-red-500' : 'text-green-600'}`}>
+                            Word count: {countWords(answers['open_like'])} / {MIN_WORDS}
+                        </div>
                     </div>
 
                     {/* Q27 */}
@@ -182,10 +209,17 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
                         <label className="block text-slate-700 font-bold mb-3 text-lg">27. What did you find confusing or unhelpful?</label>
                         <textarea
                             onChange={e => handleChange('open_confusing', e.target.value)}
+                            value={answers['open_confusing'] || ''}
                             rows={3}
-                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 bg-slate-50 focus:bg-white placeholder-slate-400 text-base"
+                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_confusing'] && countWords(answers['open_confusing']) < MIN_WORDS)
+                                ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                                : 'border-slate-300 focus:ring-indigo-500 bg-white focus:bg-white'
+                                }`}
                             placeholder="Your answer..."
                         ></textarea>
+                        <div className={`text-xs mt-1 font-bold ${countWords(answers['open_confusing']) < MIN_WORDS ? 'text-red-500' : 'text-green-600'}`}>
+                            Word count: {countWords(answers['open_confusing'])} / {MIN_WORDS}
+                        </div>
                     </div>
 
                     {/* Q28 */}
@@ -193,10 +227,17 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
                         <label className="block text-slate-700 font-bold mb-3 text-lg">28. Do you have suggestions for improving the system?</label>
                         <textarea
                             onChange={e => handleChange('open_suggestions', e.target.value)}
+                            value={answers['open_suggestions'] || ''}
                             rows={3}
-                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 bg-slate-50 focus:bg-white placeholder-slate-400 text-base"
+                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_suggestions'] && countWords(answers['open_suggestions']) < MIN_WORDS)
+                                ? 'border-red-300 focus:ring-red-500 bg-red-50'
+                                : 'border-slate-300 focus:ring-indigo-500 bg-white focus:bg-white'
+                                }`}
                             placeholder="Your answer..."
                         ></textarea>
+                        <div className={`text-xs mt-1 font-bold ${countWords(answers['open_suggestions']) < MIN_WORDS ? 'text-red-500' : 'text-green-600'}`}>
+                            Word count: {countWords(answers['open_suggestions'])} / {MIN_WORDS}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -211,6 +252,6 @@ export const Questionnaire = ({ onSubmit, condition }: QuestionnaireProps) => {
                     <Icon.ArrowRight />
                 </button>
             </div>
-        </div>
+        </div >
     );
 };

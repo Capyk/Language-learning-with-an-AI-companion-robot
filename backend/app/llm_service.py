@@ -175,13 +175,16 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
 
     2. **IF STATUS IS 'INCORRECT' (Reinforcement needed):**
        - Generate 3 screens:
-       * **Screen A:** 'word_card'. Add 'mnemonics' (in German).
-       * **Screen B:** 'challenge' (fill_gap). Content: "Practice spelling." (DE: "Übe die Rechtschreibung."). Context: Sentence with gap.
+       * **Screen A:** 'word_card'. Add 'mnemonics_en' (English mnemonic) AND 'mnemonics_de' (German mnemonic).
+         - 'mnemonics_en': A mnemonic in English to help learn the German word.
+         - 'mnemonics_de': A mnemonic in German (simple) or explaining the word's logic in German.
+       * **Screen B:** 'challenge' (fill_gap). Content: "Practice spelling." (DE: "Übe die Rechtschreibung."). Context: A REAL German sentence with the word as a gap (e.g. "Der ___ ist groß"), NOT an instruction like "fill the gap".
        * **Screen C:** 'challenge' (choice). Content: "Check article." (DE: "Prüfe den Artikel."). Context: "___ Noun". 
          **CRITICAL:** Set 'german_word' to the FULL PHRASE (e.g. "der Tisch"), NOT just "der".
 
     3. **FINAL STEPS:**
        - Generate 3 distinct text screens: 'story', 'dialogue', 'fun_fact'.
+       - **CRITICAL:** 'example_sentence' and 'content' MUST be actual German text (sentences, stories, facts), NOT meta-descriptions like "A story about a dog". Write the ACTUAL story in German.
 
     ### JSON FORMAT
     Return ONLY raw JSON.
@@ -194,7 +197,8 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
         "interaction_type": "read_only"|"fill_gap"|"choice",
         "german_word": "Str", "article": "Str", "plural": "Str",
         "image_url": "PLACEHOLDER", 
-        "example_sentence": "Str", "mnemonics": "Str",
+        "example_sentence": "Str", 
+        "mnemonics": "Str", "mnemonics_en": "Str", "mnemonics_de": "Str",
         "question_context": "Str", "options": ["der","die","das"]
       }}
     ]
@@ -219,6 +223,13 @@ async def generate_adaptive_learning_path_B(words: List[Dict], error_logs: List[
             if raw_text.startswith("```json"): raw_text = raw_text[7:]
             if raw_text.endswith("```"): raw_text = raw_text[:-3]
             generated_path = json.loads(raw_text)
+            
+            # --- LOGGING FOR USER DEBUGGING ---
+            print("\n" + "="*50)
+            print(f"🤖 AI GENERATED PATH ({len(generated_path)} steps):")
+            print(json.dumps(generated_path, indent=2, ensure_ascii=False))
+            print("="*50 + "\n")
+            # ----------------------------------
             
             # --- Mapowanie obrazków ---
             for screen in generated_path:

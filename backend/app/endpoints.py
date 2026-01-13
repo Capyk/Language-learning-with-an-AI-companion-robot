@@ -17,6 +17,10 @@ router = APIRouter()
 try: init_db()
 except: pass
 
+@router.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 try:
     VOCAB_DF = pd.read_csv("vocab.csv", sep=";")
     VOCAB_DF = VOCAB_DF.dropna(subset=['image_id', 'german_word'])
@@ -68,7 +72,7 @@ async def init_experiment(data: SessionInit):
     # If condition is not provided (or we want to override for balancing), determine it now.
     # Frontend might send "A" or "B" for testing, but ideally we ignore it or use it as hint.
     # Given the requirements, we force the assignment here.
-    assigned_condition = get_next_group()
+    assigned_condition = data.condition if data.condition else get_next_group()
     
     if assigned_condition == "A":
         l_path = generate_static_learning_path_A(pre)
@@ -291,7 +295,12 @@ async def submit_answer(data: AnswerSubmit):
             # If the user wants the interface in German, we need that info.
             # Currently frontend `startExperiment` doesn't send language.
             
-            sess["items"]["learning_path"] = await generate_adaptive_learning_path_B(sess["items"]["learning_raw"], sess["logs"], target_language="en")
+            # user interface language so mnemonics are useful.
+            sess["items"]["learning_path"] = await generate_adaptive_learning_path_B(
+                sess["items"]["learning_raw"], 
+                sess["logs"], 
+                target_language=data.language or "en"
+            )
         elif phase == "pre-test" and sess["condition"] == "A" and not sess["items"]["learning_path"]:
              sess["items"]["learning_path"] = generate_static_learning_path_A(sess["items"]["learning_raw"])
 

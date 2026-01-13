@@ -18,7 +18,7 @@ const ExperimentContainer: React.FC = () => {
     const [authStep, setAuthStep] = React.useState(true); // true = showing LandingPage
 
     // --- POPRAWKA 1: Destrukturyzacja 'language' ze stanu ---
-    const { view, currentTrial, isLoading, error, feedback, nudge, session, language } = state;
+    const { view, currentTrial, isLoading, error, feedback, nudge, session, language, hasUsedTutor } = state;
 
     useEffect(() => {
         document.body.style.backgroundColor = '#f8fafc';
@@ -46,6 +46,7 @@ const ExperimentContainer: React.FC = () => {
         return (
             <LandingPage onSuccess={(code, group) => {
                 setAccessCode(code);
+                localStorage.setItem('experiment_access_code', code); // FIX: Persist code for refresh
                 setAssignedGroup(group);
                 setAuthStep(false);
             }} />
@@ -60,7 +61,7 @@ const ExperimentContainer: React.FC = () => {
             />
         );
     }
-    if (view === 'questionnaire') return <Questionnaire onSubmit={actions.handleQuestSubmit} condition={session?.condition} />;
+    if (view === 'questionnaire') return <Questionnaire onSubmit={actions.handleQuestSubmit} condition={session?.condition} tutorUsed={hasUsedTutor} />;
     if (view === 'demographics') {
         return (
             <DemographicsForm onSubmit={(data) => actions.handleFinalSubmit({ ...data, access_code: accessCode })} />
@@ -82,13 +83,7 @@ const ExperimentContainer: React.FC = () => {
     // Tutor widoczny dla wszystkich w fazie Learning, ALE TYLKO DLA GRUPY B
     const showTutor = currentTrial?.phase === 'learning' && session?.condition === 'B';
 
-    // DEBUG LOGS
-    console.log("DEBUG SWITCHER:", {
-        phase: currentTrial?.phase,
-        condition: session?.condition,
-        showTutor,
-        showSwitcher: currentTrial?.phase === 'learning' && !showTutor
-    });
+
 
     const taskContext = {
         prompt: currentTrial?.payload?.question_context || currentTrial?.payload?.title || "Word learning",
@@ -135,6 +130,7 @@ const ExperimentContainer: React.FC = () => {
                                 // PERSISTENCE
                                 initialHistory={currentTrial?.tutor_state?.history}
                                 initialPromptCount={currentTrial?.tutor_state?.prompt_count}
+                                onInteraction={actions.markTutorUsed}
                             />
                         </div>
                     )}
@@ -146,6 +142,11 @@ const ExperimentContainer: React.FC = () => {
                     trial={currentTrial}
                     feedback={feedback}
                     isLoading={isLoading}
+                    loadingText={
+                        (isLoading && session?.condition === 'B' && currentTrial?.phase === 'pre-test')
+                            ? "Generating personalized tasks..."
+                            : "Loading..."
+                    }
                     onSubmit={actions.submitAnswer}
                     onSkip={actions.skipToPhase}
                     onNextTrial={() => actions.fetchNextTrial(session.session_id)}
