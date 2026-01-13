@@ -9,7 +9,6 @@ interface ExperimentLayoutProps {
     isLoading: boolean;
     loadingText?: string;
     onSubmit: (answer: string) => void;
-    onSkip: (phase: string) => void;
     onNextTrial: () => void; // Wywoływane z FeedbackCard
     // New optional props for Static Language Switcher
     showLanguageSwitcher?: boolean;
@@ -17,7 +16,7 @@ interface ExperimentLayoutProps {
     onLanguageChange?: () => void;
 }
 
-export const ExperimentLayout = ({ trial, feedback, isLoading, loadingText, onSubmit, onSkip, onNextTrial, showLanguageSwitcher, language, onLanguageChange }: ExperimentLayoutProps) => {
+export const ExperimentLayout = ({ trial, feedback, isLoading, loadingText, onSubmit, onNextTrial, showLanguageSwitcher, language, onLanguageChange }: ExperimentLayoutProps) => {
     const [localInput, setLocalInput] = useState('');
     const [selectedArticle, setSelectedArticle] = useState<string | null>(null);
 

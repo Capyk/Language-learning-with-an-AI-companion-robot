@@ -51,7 +51,7 @@ export const AdminPanel = () => {
     const generateCodes = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/admin/codes/generate`, {
+            await fetch(`${API_BASE}/admin/codes/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
