@@ -148,7 +148,6 @@ const ExperimentContainer: React.FC = () => {
                             : "Loading..."
                     }
                     onSubmit={actions.submitAnswer}
-                    onSkip={actions.skipToPhase}
                     onNextTrial={() => actions.fetchNextTrial(session.session_id)}
 
                     // LANGUAGE SWITCHER FOR STATIC GROUP (Only in Learning Phase)
