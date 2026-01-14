@@ -301,6 +301,12 @@ async def generate_tutor_response(
     # 1. Build the Persona and Prompt
     persona = "You are 'Lukas', a friendly and encouraging A1 German tutor for beginners."
     
+    # Determine language instruction based on target_language provided by frontend
+    # Default to German if not specified or 'de'
+    lang_instruction = "Answer the question simply. Use A1 German where possible."
+    if target_language == 'en':
+        lang_instruction = "Answer the student's question in English. Use German only for specific examples/words or if explicitly asked to speak German."
+
     if is_nudge:
         prompt = f"""
         {persona}
@@ -320,7 +326,7 @@ async def generate_tutor_response(
         Task Type: {context.get('exercise_type', 'unknown')}
         Student's question: "{question}"
 
-        TASK: Answer the question simply. Use A1 German where possible.
+        TASK: {lang_instruction}
         Return structured feedback.
         """
 
@@ -349,7 +355,8 @@ async def generate_tutor_response(
         # Translate message if target language is English
         if target_language == "en" and data.get("message"):
             # Simple fallback for this demo, usually you'd call the LLM again or have it dual-output
-            data["message"] = data["message"] # LLM typically follows target_language if specified in prompt
+            # data["message"] = data["message"] # LLM typically follows target_language if specified in prompt
+            pass
             
         return data
 

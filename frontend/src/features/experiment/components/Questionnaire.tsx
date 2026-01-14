@@ -80,18 +80,18 @@ export const Questionnaire = ({ onSubmit, condition, tutorUsed }: QuestionnaireP
     const filledLikert = Object.keys(answers).filter(k => k.startsWith('q_')).length;
 
     // Walidacja: Wszystkie pytania zamknięte muszą być wypełnione
-    const countWords = (str?: string) => {
+    const countChars = (str?: string) => {
         if (!str) return 0;
-        return str.trim().split(/\s+/).filter(w => w.length > 0).length;
+        return str.trim().length;
     };
 
-    const MIN_WORDS = 10;
+    const MIN_CHARS = 15;
     const openQuestions = ['open_like', 'open_confusing', 'open_suggestions'];
 
-    // Check if open questions are valid (>= MIN_WORDS)
+    // Check if open questions are valid (>= MIN_CHARS)
     const openValid = openQuestions.every(key => {
         const val = answers[key] || "";
-        return countWords(val) >= MIN_WORDS;
+        return countChars(val) >= MIN_CHARS;
     });
 
     const isComplete = (filledLikert >= totalLikertQuestions) && openValid;
@@ -182,7 +182,7 @@ export const Questionnaire = ({ onSubmit, condition, tutorUsed }: QuestionnaireP
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8 border-l-8 border-l-slate-700">
                 <h2 className="text-2xl font-bold text-slate-800 mb-6">Section F – Open Ended</h2>
                 <div className="bg-amber-50 text-amber-800 p-4 rounded-lg mb-6 text-sm font-bold border border-amber-200">
-                    Please provide detailed answers. Minimum {MIN_WORDS} words required per question.
+                    Please provide detailed answers. Minimum {MIN_CHARS} characters required per question.
                 </div>
 
                 <div className="grid gap-8">
@@ -193,14 +193,14 @@ export const Questionnaire = ({ onSubmit, condition, tutorUsed }: QuestionnaireP
                             onChange={e => handleChange('open_like', e.target.value)}
                             value={answers['open_like'] || ''}
                             rows={3}
-                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_like'] && countWords(answers['open_like']) < MIN_WORDS)
+                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_like'] && countChars(answers['open_like']) < MIN_CHARS)
                                 ? 'border-red-300 focus:ring-red-500 bg-red-50'
                                 : 'border-slate-300 focus:ring-indigo-500 bg-white focus:bg-white'
                                 }`}
                             placeholder="Your answer..."
                         ></textarea>
-                        <div className={`text-xs mt-1 font-bold ${countWords(answers['open_like']) < MIN_WORDS ? 'text-red-500' : 'text-green-600'}`}>
-                            Word count: {countWords(answers['open_like'])} / {MIN_WORDS}
+                        <div className={`text-xs mt-1 font-bold ${countChars(answers['open_like']) < MIN_CHARS ? 'text-red-500' : 'text-green-600'}`}>
+                            Character count: {countChars(answers['open_like'])} / {MIN_CHARS}
                         </div>
                     </div>
 
@@ -211,14 +211,14 @@ export const Questionnaire = ({ onSubmit, condition, tutorUsed }: QuestionnaireP
                             onChange={e => handleChange('open_confusing', e.target.value)}
                             value={answers['open_confusing'] || ''}
                             rows={3}
-                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_confusing'] && countWords(answers['open_confusing']) < MIN_WORDS)
+                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_confusing'] && countChars(answers['open_confusing']) < MIN_CHARS)
                                 ? 'border-red-300 focus:ring-red-500 bg-red-50'
                                 : 'border-slate-300 focus:ring-indigo-500 bg-white focus:bg-white'
                                 }`}
                             placeholder="Your answer..."
                         ></textarea>
-                        <div className={`text-xs mt-1 font-bold ${countWords(answers['open_confusing']) < MIN_WORDS ? 'text-red-500' : 'text-green-600'}`}>
-                            Word count: {countWords(answers['open_confusing'])} / {MIN_WORDS}
+                        <div className={`text-xs mt-1 font-bold ${countChars(answers['open_confusing']) < MIN_CHARS ? 'text-red-500' : 'text-green-600'}`}>
+                            Character count: {countChars(answers['open_confusing'])} / {MIN_CHARS}
                         </div>
                     </div>
 
@@ -229,14 +229,14 @@ export const Questionnaire = ({ onSubmit, condition, tutorUsed }: QuestionnaireP
                             onChange={e => handleChange('open_suggestions', e.target.value)}
                             value={answers['open_suggestions'] || ''}
                             rows={3}
-                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_suggestions'] && countWords(answers['open_suggestions']) < MIN_WORDS)
+                            className={`w-full p-4 border rounded-xl focus:ring-2 outline-none transition-all placeholder-slate-400 text-base text-slate-900 bg-white ${(answers['open_suggestions'] && countChars(answers['open_suggestions']) < MIN_CHARS)
                                 ? 'border-red-300 focus:ring-red-500 bg-red-50'
                                 : 'border-slate-300 focus:ring-indigo-500 bg-white focus:bg-white'
                                 }`}
                             placeholder="Your answer..."
                         ></textarea>
-                        <div className={`text-xs mt-1 font-bold ${countWords(answers['open_suggestions']) < MIN_WORDS ? 'text-red-500' : 'text-green-600'}`}>
-                            Word count: {countWords(answers['open_suggestions'])} / {MIN_WORDS}
+                        <div className={`text-xs mt-1 font-bold ${countChars(answers['open_suggestions']) < MIN_CHARS ? 'text-red-500' : 'text-green-600'}`}>
+                            Character count: {countChars(answers['open_suggestions'])} / {MIN_CHARS}
                         </div>
                     </div>
                 </div>
