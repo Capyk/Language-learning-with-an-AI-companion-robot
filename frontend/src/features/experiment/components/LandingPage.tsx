@@ -55,7 +55,7 @@ export const LandingPage = ({ onSuccess }: LandingPageProps) => {
                     <input
                         type="text"
                         value={code}
-                        onChange={(e) => setCode(e.target.value)}
+                        onChange={(e) => setCode(e.target.value.toUpperCase())}
                         placeholder="XXX-XXX"
                         className="w-full py-4 px-6 rounded-2xl bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white transition-all text-center text-xl font-bold tracking-widest uppercase text-slate-800 outline-none"
                     />

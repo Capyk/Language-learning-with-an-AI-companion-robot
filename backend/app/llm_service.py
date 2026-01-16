@@ -327,6 +327,10 @@ async def generate_tutor_response(
         Student's question: "{question}"
 
         TASK: {lang_instruction}
+        CRITICAL INSTRUCTION: Your explanation MUST be specific to the word or sentence in the CONTEXT. Do NOT give general definitions unless explicitly asked. If the user asks "why", explain why the TARGET ANSWER is correct in this specific sentence context.
+        Avoid abstract grammar lectures. Be concrete and refer directly to the 'Target' word/phrase.
+
+        TASK: {lang_instruction}
         Return structured feedback.
         """
 
