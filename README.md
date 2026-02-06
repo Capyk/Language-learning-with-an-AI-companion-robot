@@ -1,17 +1,73 @@
 # German Vocabulary AI Tutor Experiment
 
 This project is a **research platform** designed to measure the effectiveness of **Adaptive AI Feedback** versus **Static Feedback** in learning German vocabulary.  
-It features a **3-phase experiment**:
 
-1. **Pre-test**
-2. **Learning Session**
-3. **Post-test**
+## 🎥 Demos & Walkthrough
+
+Consent form and info screen:
+
+![Consent form](docs/consent_form.gif)
+
+Experiment interface:
+
+![Experiment interface](docs/experiment_interface.png)
+
+AI Tutor interface:
+
+![AI Tutor interface](docs/ai_tutor_interface.png)
+
+AI Generated content examples:
+
+Good example would be the mnemonics on the flashcard screen:
+![AI Generated content example](docs/ai_generated_content_example.png)
+
+Another example would be the generated short story and fun fact:
+![AI Generated content example](docs/ai_generated_content_example_2.png) ![AI Generated content example](docs/ai_generated_content_example_3.png)
+
+| **Condition A (Static Feedback)** | **Condition B (Adaptive AI)** |
+|:---:|:---:|
+| [*Insert Video/GIF Here*](#) | [*Insert Video/GIF Here*](#) |
+| *Showcases basic recall & error message* | *Showcases Gemini-powered hints & explanations* |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Key Experimental Results
 
-Follow these instructions to get the project up and running on your local machine for testing.
+Our study compared **Static Feedback (Group A)** vs. **Adaptive AI Feedback (Group B)**.  
+The results demonstrate that the **AI Companion significantly accelerates learning speed**.
+
+### 📈 Metrics at a Glance
+
+| Metric | Result | Interpretation |
+| :--- | :--- | :--- |
+| **Learning Efficiency** | **+153.5%** | Group B learned vocabulary **2.5x faster** (score per minute). |
+| **Effect Size (Cohen's d)** | **1.11** | A **very large positive effect** in favor of the AI Tutor. |
+| **Significance (p-value)** | **0.0039** | Statistically significant result (p < 0.01). |
+
+*(Results based on N=32 participants, independent t-test)*
+
+---
+
+## 🏗️ Architecture & Tech Stack
+
+This project is built with a modern, scalable full-stack architecture designed for real-time interaction and data logging.
+
+### 🎨 Frontend (Client)
+*   **React 19**: Component-based UI for dynamic state management.
+*   **TypeScript**: Ensures type safety and robust code quality.
+*   **Vite**: Ultra-fast build tool and development server.
+*   **CSS Modules / Vanilla CSS**: Custom styling for a distraction-free learning environment.
+
+### ⚙️ Backend (Server)
+*   **FastAPI**: High-performance Python web framework for asynchronous request handling.
+*   **Google Gemini Pro 1.5**: LLM integration for generating context-aware hints and explanations.
+*   **Pandas**: Data manipulation for experiment logging and CSV export.
+*   **Uvicorn**: ASIC server for high-throughput production deployment.
+
+### 📐 System Design Highlights
+*   **State Machine Logic**: The backend manages user states (`Learning`, `Testing`) to strictly control the experiment flow.
+*   **Adaptive Feedback Loop**: Real-time analysis of user input triggers one of 3 feedback levels (Subtle Hint → Strong Hint → Correction).
+*   **Session Persistence**: LocalStorage and backend session tracking ensure experiment continuity even on page refresh.
 
 ---
 
@@ -26,11 +82,7 @@ Follow these instructions to get the project up and running on your local machin
 
 ## 🛠️ Backend Setup (FastAPI)
 
-The backend manages:
-
-- Experiment logic
-- Session state
-- Integration with **Google Gemini** for adaptive hints
+The backend manages experiment logic, session state, and integration with **Google Gemini** for adaptive hints.
 
 ### 1️⃣ Navigate to the backend folder
 
@@ -72,10 +124,9 @@ GEMINI_API_KEY=your_actual_api_key_here
 
 - Ensure `vocab.csv` is located in the `backend/` root directory
 - Place image assets in:
-
-```
-backend/data/images/
-```
+  ```
+  backend/data/images/
+  ```
 
 ### 6️⃣ Run the server
 
@@ -90,11 +141,7 @@ The backend will be available at:
 
 ## 💻 Frontend Setup (React + Vite)
 
-The frontend:
-
-- Provides the experiment UI
-- Handles character selection
-- Performs input validation
+The frontend provides the experiment UI, handles character selection, and performs input validation.
 
 ### 1️⃣ Navigate to the frontend folder
 
@@ -110,7 +157,7 @@ npm install
 
 ### 3️⃣ Proxy Configuration (Important)
 
-Ensure `vite.config.ts` includes the following proxy setup to avoid CORS issues:
+Ensure `vite.config.ts` includes the proxy setup to avoid CORS issues:
 
 ```ts
 server: {
@@ -138,63 +185,30 @@ The frontend will be available at:
 2. Select a **Condition**
 
 ### 🅰️ Condition A — Static Feedback
-
-- Tests basic recall
-- Immediate **Correct / Incorrect** feedback
-- Full answer shown after an incorrect attempt
+- Tests basic recall.
+- Immediate **Correct / Incorrect** feedback.
+- Full answer shown after an incorrect attempt.
 
 ### 🅱️ Condition B — Adaptive Feedback (AI Companion)
-
-- Uses **Gemini-powered hints**
+- Uses **Gemini-powered hints**.
 - Feedback progression:
   - **Subtle hint**
   - **Strong hint**
-  - Full answer revealed on the **3rd attempt**
+  - Full answer revealed on the **3rd attempt**.
 
 ---
 
 ## ✅ Key Features to Test
 
 ### Noun Capitalization
-
 In Condition B (Learning phase), submit a noun in lowercase.
-
-Example:
-
-```
-apfel → ❌
-Apfel → ✅
-```
-
-The system should prompt grammatical correction.
+- `apfel` → ❌ (Prompts correction)
+- `Apfel` → ✅
 
 ### Article Selector
-
 Ensure **der / die / das** is selected before submitting a noun.
 
 ### Phase Transitions
-
 Completing the required number of tasks should trigger:
-
 - Pre-test → Learning
 - Learning → Post-test
-
----
-
-## 📊 Data Export
-
-To retrieve experiment logs for analysis after a session, use the export endpoint:
-
-```http
-GET http://127.0.0.1:8000/experiment/export/{session_id}
-```
-
-This returns structured data suitable for statistical analysis and reporting.
-
----
-
-## 📌 Notes
-
-- Designed for **controlled experiments**
-- Supports **between-subject comparisons**
-- Logs all attempts, hints, and responses for research evaluation
